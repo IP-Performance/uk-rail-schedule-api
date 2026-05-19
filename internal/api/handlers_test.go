@@ -70,6 +70,7 @@ func buildRouter(h *api.Handler) http.Handler {
 		})
 		r.Post("/refresh", h.RunRefresh)
 	})
+	r.With(h.LegacySchedulesCtx).Get("/schedules/{identifierType}/{identifier}", h.GetSchedules)
 	return r
 }
 
@@ -378,5 +379,144 @@ func TestRunRefresh_WhenBusy(t *testing.T) {
 
 	if rec.Code != http.StatusConflict {
 		t.Errorf("expected 409, got %d", rec.Code)
+	}
+}
+
+func TestLegacySchedules_ByTiploc(t *testing.T) {
+	db := setupTestDB(t)
+	seedScheduleWithLocation(t, db, "2A20", "C00206", "DRBY")
+	h := &api.Handler{Store: store.New(db, "test")}
+	router := buildRouter(h)
+
+	req := httptest.NewRequest(http.MethodGet, "/schedules/tiploc/DRBY?date=2023-05-21", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp api.ScheduleAPIResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Schedules) != 1 {
+		t.Errorf("expected 1 schedule, got %d", len(resp.Schedules))
+	}
+}
+
+func TestLegacySchedules_ByTiploc_NotFound(t *testing.T) {
+	db := setupTestDB(t)
+	h := &api.Handler{Store: store.New(db, "test")}
+	router := buildRouter(h)
+
+	req := httptest.NewRequest(http.MethodGet, "/schedules/tiploc/NONEXISTENT?date=2023-05-21", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("expected 404, got %d", rec.Code)
+	}
+}
+
+func TestLegacySchedules_ByUID(t *testing.T) {
+	db := setupTestDB(t)
+	seedSchedule(t, db, "2A20", "C00206")
+	h := &api.Handler{Store: store.New(db, "test")}
+	router := buildRouter(h)
+
+	req := httptest.NewRequest(http.MethodGet, "/schedules/uid/C00206?date=2023-05-21", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp api.ScheduleAPIResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Schedules) != 1 {
+		t.Errorf("expected 1 schedule, got %d", len(resp.Schedules))
+	}
+}
+
+func TestLegacySchedules_ByUID_WithLocationFilter(t *testing.T) {
+	db := setupTestDB(t)
+	seedScheduleWithLocation(t, db, "2A20", "C00206", "DRBY")
+	h := &api.Handler{Store: store.New(db, "test")}
+	router := buildRouter(h)
+
+	// location=DRBY matches, so we should get a result
+	req := httptest.NewRequest(http.MethodGet, "/schedules/uid/C00206?date=2023-05-21&location=DRBY", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 with matching location, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+
+	// location=NONEXISTENT doesn't match any stop on the schedule
+	req2 := httptest.NewRequest(http.MethodGet, "/schedules/uid/C00206?date=2023-05-21&location=NONEXISTENT", nil)
+	rec2 := httptest.NewRecorder()
+	router.ServeHTTP(rec2, req2)
+
+	if rec2.Code != http.StatusNotFound {
+		t.Errorf("expected 404 with non-matching location, got %d", rec2.Code)
+	}
+}
+
+func TestLegacySchedules_ByHeadcode(t *testing.T) {
+	db := setupTestDB(t)
+	seedSchedule(t, db, "2A20", "C00206")
+	h := &api.Handler{Store: store.New(db, "test")}
+	router := buildRouter(h)
+
+	req := httptest.NewRequest(http.MethodGet, "/schedules/headcode/2A20?date=2023-05-21", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestLegacySchedules_UnknownIdentifierType(t *testing.T) {
+	db := setupTestDB(t)
+	h := &api.Handler{Store: store.New(db, "test")}
+	router := buildRouter(h)
+
+	req := httptest.NewRequest(http.MethodGet, "/schedules/bogus/DRBY?date=2023-05-21", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 for unknown identifier type, got %d", rec.Code)
+	}
+}
+
+func TestLegacySchedules_WithTOCFilter(t *testing.T) {
+	db := setupTestDB(t)
+	seedScheduleWithLocation(t, db, "2A20", "C00206", "DRBY")
+	h := &api.Handler{Store: store.New(db, "test")}
+	router := buildRouter(h)
+
+	// Correct TOC — should match
+	req := httptest.NewRequest(http.MethodGet, "/schedules/tiploc/DRBY?date=2023-05-21&toc=GW", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Errorf("expected 200 with matching TOC, got %d", rec.Code)
+	}
+
+	// Wrong TOC — should not match
+	req2 := httptest.NewRequest(http.MethodGet, "/schedules/tiploc/DRBY?date=2023-05-21&toc=LN", nil)
+	rec2 := httptest.NewRecorder()
+	router.ServeHTTP(rec2, req2)
+
+	if rec2.Code != http.StatusNotFound {
+		t.Errorf("expected 404 with non-matching TOC, got %d", rec2.Code)
 	}
 }

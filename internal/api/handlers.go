@@ -9,6 +9,7 @@ import (
 	"uk-rail-schedule-api/internal/telemetry"
 	internalsync "uk-rail-schedule-api/internal/sync"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
 )
 
@@ -61,7 +62,7 @@ func (h *Handler) SchedulesCtx(next http.Handler) http.Handler {
 			toc = r.URL.Query().Get("toc")
 		}
 
-		schedules, err := h.Store.GetSchedules(headcode, date, toc, tiploc, r.URL.Query().Get("hide_passed") == "true")
+		schedules, err := h.Store.GetSchedules(headcode, trainUID, date, toc, tiploc, r.URL.Query().Get("hide_passed") == "true")
 		if err != nil {
 			telemetry.RecordError(r.Context(), "db")
 			http.Error(w, err.Error(), 500)
@@ -98,6 +99,68 @@ func resolveIdentifier(headcode, tiploc, trainuid string) (identifierType, ident
 	default:
 		return "headcode", ""
 	}
+}
+
+// LegacySchedulesCtx is middleware for the legacy /schedules/{identifierType}/{identifier} route.
+// It maps path params to the store query params and stores the result in context under "schedules".
+//
+// Supported identifierType values:
+//   - "tiploc"   — filters by TIPLOC code (path identifier used as the TIPLOC filter)
+//   - "uid"      — filters by CIF Train UID; optional "location" query param further filters by TIPLOC
+//   - "headcode" — filters by signalling headcode
+func (h *Handler) LegacySchedulesCtx(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		identifierType := chi.URLParam(r, "identifierType")
+		identifier := chi.URLParam(r, "identifier")
+
+		date := time.Now().Format("2006-01-02")
+		if r.URL.Query().Has("date") {
+			date = r.URL.Query().Get("date")
+		}
+
+		toc := "any"
+		if r.URL.Query().Has("toc") {
+			toc = r.URL.Query().Get("toc")
+		}
+
+		location := r.URL.Query().Get("location")
+
+		var headcode, trainUID, tiplocId string
+		switch identifierType {
+		case "tiploc":
+			tiplocId = identifier
+		case "uid":
+			trainUID = identifier
+			tiplocId = location
+		case "headcode":
+			headcode = identifier
+			tiplocId = location
+		default:
+			http.Error(w, "unknown identifier type", http.StatusBadRequest)
+			return
+		}
+
+		schedules, err := h.Store.GetSchedules(headcode, trainUID, date, toc, tiplocId, false)
+		if err != nil {
+			telemetry.RecordError(r.Context(), "db")
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		if len(schedules) == 0 {
+			http.Error(w, http.StatusText(404), 404)
+			return
+		}
+
+		resp := ScheduleAPIResponse{
+			Headcode: headcode,
+			Tiploc:   tiplocId,
+			TrainUID: trainUID,
+			Date:     date,
+			Schedules: schedules,
+		}
+		ctx := context.WithValue(r.Context(), "schedules", resp)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
 
 func (h *Handler) StatusCtx(next http.Handler) http.Handler {

@@ -83,7 +83,7 @@ func (s *Store) GetStatus() (APIStatus, error) {
 	return status, nil
 }
 
-func (s *Store) GetSchedules(headcode, date, toc, tiplocId string, hidePassedTrains bool) ([]schedule.Schedule, error) {
+func (s *Store) GetSchedules(headcode, trainUID, date, toc, tiplocId string, hidePassedTrains bool) ([]schedule.Schedule, error) {
 	var schedules []schedule.Schedule
 	var tiploc schedule.Tiploc
 
@@ -96,6 +96,11 @@ func (s *Store) GetSchedules(headcode, date, toc, tiplocId string, hidePassedTra
 		headcodeFilter = "1=1"
 	} else {
 		headcodeFilter = fmt.Sprintf("signalling_id = \"%s\"", headcode)
+	}
+
+	var trainUIDFilter string
+	if trainUID != "" {
+		trainUIDFilter = fmt.Sprintf(" AND cif_train_uid = \"%s\"", trainUID)
 	}
 
 	ts, err := time.Parse("2006-01-02", date)
@@ -124,6 +129,7 @@ func (s *Store) GetSchedules(headcode, date, toc, tiplocId string, hidePassedTra
 
 	slog.Debug("filters",
 		"headcode_filter", headcodeFilter,
+		"train_uid_filter", trainUIDFilter,
 		"start_date", startDate, "end_date", endDate,
 		"day_filter", dayFilter,
 		"atoc_filter", atocFilter,
@@ -138,7 +144,7 @@ P - Permanent schedule
 For any date, 'C' or 'O' beats 'P' (lowest alphabetical STP wins). */
 	sqlErr := s.DB.Debug().Raw(
 		"SELECT * FROM schedules WHERE (cif_stp_indicator = 'P' or cif_stp_indicator = 'N') AND "+
-		headcodeFilter+" AND schedule_start_date_ts <= ? AND schedule_end_date_ts >= ? "+
+		headcodeFilter+trainUIDFilter+" AND schedule_start_date_ts <= ? AND schedule_end_date_ts >= ? "+
 		dayFilter+atocFilter+tiplocFilter,
 		startDate, endDate,
 		).Scan(&schedules).Error
@@ -155,7 +161,7 @@ For any date, 'C' or 'O' beats 'P' (lowest alphabetical STP wins). */
 	var overlays []schedule.Schedule
 	sqlErr = s.DB.Raw(
 		"SELECT * FROM schedules WHERE source=\"VSTP\" AND (cif_stp_indicator = 'O' or cif_stp_indicator = 'C') AND "+
-		headcodeFilter+" AND schedule_start_date_ts <= ? AND schedule_end_date_ts >= ? "+
+		headcodeFilter+trainUIDFilter+" AND schedule_start_date_ts <= ? AND schedule_end_date_ts >= ? "+
 		dayFilter+atocFilter+tiplocFilter,
 		startDate, endDate,
 		).Scan(&overlays).Error

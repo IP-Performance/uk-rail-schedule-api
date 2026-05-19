@@ -116,7 +116,7 @@ func (h *WebHandler) Search(w http.ResponseWriter, r *http.Request) {
 		tiplocFilter = "any"
 	}
 
-	schedules, err := h.Store.GetSchedules(headcode, date, tocFilter, tiplocFilter, hidePassedTrains)
+	schedules, err := h.Store.GetSchedules(headcode, "", date, tocFilter, tiplocFilter, hidePassedTrains)
 
 	if isHtmx {
 		data := map[string]interface{}{

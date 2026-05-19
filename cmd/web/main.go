@@ -108,6 +108,10 @@ func main() {
 		})
 	})
 
+	// Legacy path-param based schedule route for backward compatibility.
+	r.With(render.SetContentType(render.ContentTypeJSON), h.LegacySchedulesCtx).
+		Get("/schedules/{identifierType}/{identifier}", h.GetSchedules)
+
 	addr := config.GetHTTPListenAddress()
 	slog.Info("Serving requests", "addr", addr)
 	if err := http.ListenAndServe(addr, r); err != nil {
