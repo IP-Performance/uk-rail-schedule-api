@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
+
 	"uk-rail-schedule-api/internal/schedule"
 	"uk-rail-schedule-api/internal/store"
 	internalsync "uk-rail-schedule-api/internal/sync"
@@ -225,7 +227,25 @@ func (h *Handler) GetMovement(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "date must be YYYY-MM-DD", http.StatusBadRequest)
 		return
 	}
-	movement, confidence, err := h.Store.GetLatestTrustMovement(identifierType, identifier, date)
+	tiploc := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("location")))
+	if len(tiploc) > 16 {
+		http.Error(w, "location must be 16 characters or fewer", http.StatusBadRequest)
+		return
+	}
+	eventTypes := strings.ToUpper(strings.TrimSpace(r.URL.Query().Get("events")))
+	if len(eventTypes) > 40 {
+		http.Error(w, "events must be 40 characters or fewer", http.StatusBadRequest)
+		return
+	}
+	for _, eventType := range strings.Split(eventTypes, ",") {
+		switch strings.TrimSpace(eventType) {
+		case "", "DEPARTURE", "ARRIVAL", "PASS":
+		default:
+			http.Error(w, "events may contain only DEPARTURE, ARRIVAL, and PASS", http.StatusBadRequest)
+			return
+		}
+	}
+	movement, confidence, err := h.Store.GetLatestTrustMovement(identifierType, identifier, date, tiploc, eventTypes)
 	if err != nil {
 		telemetry.RecordError(r.Context(), "db")
 		http.Error(w, err.Error(), http.StatusInternalServerError)

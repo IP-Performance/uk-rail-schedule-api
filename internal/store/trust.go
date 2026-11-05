@@ -3,18 +3,46 @@ package store
 import (
 	"errors"
 	"fmt"
+	"strings"
+
 	"uk-rail-schedule-api/internal/schedule"
 
 	"gorm.io/gorm"
 )
 
-// GetLatestTrustMovement returns the most recent ScotRail movement for a
-// schedule UID, or for an unambiguous headcode/service-date combination.
-func (s *Store) GetLatestTrustMovement(identifierType, identifier, serviceDate string) (*schedule.TrustMovement, string, error) {
+// GetLatestTrustMovement returns the latest ScotRail movement for a schedule
+// UID, or for an unambiguous headcode/service-date combination. When a TIPLOC
+// and event types are supplied, the event must also match that timetable stop.
+func (s *Store) GetLatestTrustMovement(identifierType, identifier, serviceDate, tiplocCode, eventTypes string) (*schedule.TrustMovement, string, error) {
 	if s.DB == nil {
 		return nil, "", errors.New("db is nil")
 	}
 	query := s.DB.Model(&schedule.TrustMovement{}).Where("toc_id = ? AND service_date = ?", "60", serviceDate)
+	if tiplocCode != "" {
+		var tiploc schedule.Tiploc
+		if err := s.DB.Where("tiploc_code = ?", tiplocCode).First(&tiploc).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, "", nil
+			}
+			return nil, "", fmt.Errorf("lookup TRUST station TIPLOC: %w", err)
+		}
+		if strings.TrimSpace(tiploc.Stanox) == "" {
+			return nil, "", nil
+		}
+		query = query.Where("location_stanox = ?", strings.TrimSpace(tiploc.Stanox))
+	}
+	if eventTypes != "" {
+		types := make([]string, 0, 3)
+		for _, eventType := range strings.Split(eventTypes, ",") {
+			if eventType = strings.ToUpper(strings.TrimSpace(eventType)); eventType != "" {
+				types = append(types, eventType)
+			}
+		}
+		if len(types) == 0 {
+			return nil, "", nil
+		}
+		query = query.Where("UPPER(event_type) IN ?", types)
+	}
 	confidence := "schedule_uid"
 	switch identifierType {
 	case "trainuid":

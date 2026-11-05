@@ -66,7 +66,7 @@ You can further filter on location, date or train operating code by adding one o
 
 The /schedules endpoint will return an array of schedules. Any applicable overlays that have been received from the VSTP service will be applied to any schedules returned.
 
-The Docker `syncd` service also consumes the Network Rail TRUST `TRAIN_MVT_ALL_TOC` topic. It correlates activations and movement reports, stores normalized ScotRail-only movement data in the configured database, and retains it for `TRUST_MOVEMENT_RETENTION_DAYS` (7 days by default). The movement endpoint is `/api/movements/{trainuid|headcode}/{identifier}?date=YYYY-MM-DD`; headcode lookups are returned only when the headcode identifies one train on that service date.
+The Docker `syncd` service also consumes the Network Rail TRUST `TRAIN_MVT_ALL_TOC` topic. It correlates activations and movement reports, stores normalized ScotRail-only movement data in the configured database, and retains it for `TRUST_MOVEMENT_RETENTION_DAYS` (7 days by default). The movement endpoint is `/api/movements/{trainuid|headcode}/{identifier}?date=YYYY-MM-DD`; headcode lookups are returned only when the headcode identifies one train on that service date. Optional `location=TIPLOC` and `events=DEPARTURE,ARRIVAL,PASS` parameters restrict the result to a movement at a specific timetable stop. The API maps TIPLOC to STANOX so a caller can match an event to one leg instead of reusing a train-wide latest event at every stop.
 
 The structure is similar to that described [here](https://wiki.openraildata.com/index.php?title=Schedule_Records) with the following differences
 
