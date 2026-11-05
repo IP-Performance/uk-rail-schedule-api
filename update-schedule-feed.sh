@@ -5,8 +5,8 @@
 # It is intended to be run as a cron job.
 #
 # Required environment variables:
-#   UKRA_USERNAME     - Network Rail open data portal username
-#   UKRA_PASSWORD     - Network Rail open data portal password
+#   NR_STOMP_LOGIN    - Network Rail data feeds username
+#   NR_STOMP_PASSWORD - Network Rail data feeds password
 #
 # Optional environment variables:
 #   SCHEDULE_FEED_FILENAME  - path to write the decompressed feed
@@ -23,8 +23,8 @@ log() {
 # Change to the directory of the script so relative paths work correctly
 cd "$(dirname "$0")"
 
-if [ -z "${UKRA_USERNAME:-}" ] || [ -z "${UKRA_PASSWORD:-}" ]; then
-  log "ERROR: UKRA_USERNAME or UKRA_PASSWORD not set"
+if [ -z "${NR_STOMP_LOGIN:-}" ] || [ -z "${NR_STOMP_PASSWORD:-}" ]; then
+  log "ERROR: NR_STOMP_LOGIN or NR_STOMP_PASSWORD not set"
   exit 1
 fi
 
@@ -41,9 +41,9 @@ trap cleanup EXIT
 
 log "Downloading schedule feed to ${FEED_FILE}..."
 if ! curl --silent --show-error --fail --location \
-     -u "${UKRA_USERNAME}:${UKRA_PASSWORD}" \
+     -u "${NR_STOMP_LOGIN}:${NR_STOMP_PASSWORD}" \
      -o "$TMP_GZ" \
-     'https://publicdatafeeds.networkrail.co.uk/ntrod/CifFileAuthenticate?type=CIF_ALL_FULL_DAILY&day=toc-full'; then
+     'https://publicdatafeeds.networkrail.co.uk/ntrod/CifFileAuthenticate?type=CIF_HA_TOC_FULL_DAILY&day=toc-full'; then
   log "ERROR: Failed to download schedule feed"
   exit 1
 fi

@@ -34,7 +34,7 @@ func main() {
 		}
 	}()
 
-	database, err := db.Open(config.GetDatabaseFilename())
+	database, err := db.OpenConfigured(config.GetDatabaseFilename(), config.GetDatabaseDSN())
 	if err != nil {
 		slog.Error("Failed to open database", "error", err)
 		os.Exit(1)
@@ -57,6 +57,7 @@ func main() {
 		slog.Warn("STOMP credentials not configured - VSTP feed will not be consumed", "error", connErr)
 	} else {
 		go internalsync.ListenForVSTP(database, stompURL, login, password, config.GetDataDir())
+		go internalsync.ListenForTrustMovements(database, stompURL, login, password)
 	}
 
 	// Block until a termination signal is received

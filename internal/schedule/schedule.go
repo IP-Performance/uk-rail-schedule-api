@@ -79,7 +79,7 @@ type ScheduleLocation struct {
 	ScheduleID           uint64 `gorm:"index"`
 	LocationType         string `json:"location_type,omitempty"`
 	RecordIdentity       string `json:"record_identity,omitempty"`
-	TiplocCode           string `gorm:"index" json:"tiploc_code,omitempty"`
+	TiplocCode           string `gorm:"size:16;index" json:"tiploc_code,omitempty"`
 	TiplocInstance       string `json:"tiploc_instance,omitempty"`
 	Departure            string `json:"departure,omitempty"`
 	PublicDeparture      string `json:"public_departure,omitempty"`

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"os"
 	"path"
@@ -103,7 +104,6 @@ func RefreshSchedules(filename string, db *gorm.DB, dataDir string, deleteExpire
 
 	var schedules []schedule.Schedule
 	var tiplocs []schedule.Tiploc
-	var existingSchedule schedule.Schedule
 	var scheduleCount, tiplocCount int64
 
 	for scanner.Scan() {
@@ -119,15 +119,30 @@ func RefreshSchedules(filename string, db *gorm.DB, dataDir string, deleteExpire
 		if record.IsSchedule() {
 			sch := record.JSONScheduleV1.ToSchedule(publishedAt)
 			sch.AugmentSchedule()
-
-			if err := db.Where("combined_id = ?", sch.CombinedID).First(&existingSchedule).Error; err != nil {
+			scheduleCount++
+			var existingSchedule schedule.Schedule
+			lookupErr := db.Where("combined_id = ?", sch.CombinedID).First(&existingSchedule).Error
+			if lookupErr == nil {
+				// Save matching schedules one at a time. GORM's slice Save path
+				// did not reliably retain the selected IDs here, so daily full
+				// feeds accumulated duplicate timetable rows.
 				sch.ID = existingSchedule.ID
+				if err := db.Omit("ScheduleLocation").Save(&sch).Error; err != nil {
+					slog.Error("Failed to update existing schedule", "error", err, "combined_id", sch.CombinedID)
+					return
+				}
+			} else if errors.Is(lookupErr, gorm.ErrRecordNotFound) {
+				schedules = append(schedules, sch)
+			} else {
+				slog.Error("Failed to look up existing schedule", "error", lookupErr, "combined_id", sch.CombinedID)
+				return
 			}
 
-			schedules = append(schedules, sch)
-			scheduleCount++
 			if len(schedules) == 10 {
-				db.Save(&schedules)
+				if err := db.Create(&schedules).Error; err != nil {
+					slog.Error("Failed to insert schedule batch", "error", err)
+					return
+				}
 				schedules = nil
 			}
 		}
@@ -143,7 +158,10 @@ func RefreshSchedules(filename string, db *gorm.DB, dataDir string, deleteExpire
 	}
 
 	if len(schedules) > 0 {
-		db.Save(&schedules)
+		if err := db.Create(&schedules).Error; err != nil {
+			slog.Error("Failed to insert final schedule batch", "error", err)
+			return
+		}
 	}
 	if len(tiplocs) > 0 {
 		db.Save(&tiplocs)

@@ -36,7 +36,7 @@ func ListenForVSTP(db *gorm.DB, stompURL, login, password, dataDir string) {
 				gostomp.ConnOpt.Login(login, password))
 
 			if err != nil {
-				slog.Warn(fmt.Sprintf("Could not connect to stomp. Pausing for %d seconds before retrying", timeout))
+				slog.Warn(fmt.Sprintf("Could not connect to stomp. Pausing for %d seconds before retrying", timeout), "error", err)
 				telemetry.RecordStompReconnect(context.Background())
 				time.Sleep(time.Duration(timeout) * time.Second)
 				timeout = timeout * 2

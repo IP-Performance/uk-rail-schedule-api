@@ -5,12 +5,12 @@ services:
     env_file: .env
     environment:
       DATA_DIR: /app/data
-      SCHEDULE_FEED_FILENAME: /app/schedule.json
+      SCHEDULE_FEED_FILENAME: /app/data/schedule.json
       LOG_FILENAME: ""
     volumes:
-      - ./data:/app/data
-      - ./schedule.json:/app/schedule.json:ro
-    restart: on-failure
+      - ../uk-rail-schedule-runtime/data:/app/data
+      - /var/run/mysqld:/var/run/mysqld:ro
+    restart: unless-stopped
 
   web:
     build: .
@@ -21,22 +21,23 @@ services:
       LISTEN_ON: "0.0.0.0:3333"
       LOG_FILENAME: ""
     ports:
-      - "3333:3333"
+      - "127.0.0.1:3333:3333"
     volumes:
-      - ./data:/app/data
+      - ../uk-rail-schedule-runtime/data:/app/data
+      - /var/run/mysqld:/var/run/mysqld:ro
     depends_on:
       - syncd
-    restart: on-failure
+    restart: unless-stopped
 
   update-feed:
     build: .
     command: ./update-schedule-feed.sh
     env_file: .env
     environment:
-      SCHEDULE_FEED_FILENAME: /app/schedule.json
+      SCHEDULE_FEED_FILENAME: /app/data/schedule.json
       LISTEN_ON: "web:3333"
     volumes:
-      - ./schedule.json:/app/schedule.json
+      - ../uk-rail-schedule-runtime/data:/app/data
     depends_on:
       - web
     restart: "no"

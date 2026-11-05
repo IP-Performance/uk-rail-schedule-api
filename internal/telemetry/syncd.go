@@ -88,14 +88,14 @@ func RecordFeedRefreshCompleted(ctx context.Context, scheduleCount, tiplocCount 
 // lazily each time the OTel SDK exports metrics (every 30 s by default).
 //
 // db is the GORM database handle used for live record counts.
-// dbPath is the filesystem path to the SQLite file, used to read its size.
+// dbPath is the filesystem path to the SQLite file when SQLite is in use.
 func RegisterSyncdObservables(db *gorm.DB, dbPath string) {
 	meter := otel.GetMeterProvider().Meter(meterName)
 
 	// --- Database size ---
 	dbSizeGauge, _ := meter.Int64ObservableGauge(
 		"db_size_bytes",
-		metric.WithDescription("Size of the SQLite database file in bytes"),
+		metric.WithDescription("Database storage size in bytes"),
 	)
 
 	// --- Record counts ---
@@ -130,8 +130,13 @@ func RegisterSyncdObservables(db *gorm.DB, dbPath string) {
 
 	_, _ = meter.RegisterCallback(
 		func(ctx context.Context, o metric.Observer) error {
-			// DB file size
-			if fi, err := os.Stat(dbPath); err == nil {
+			// Report storage size for whichever database backend is configured.
+			if db.Dialector.Name() == "mysql" {
+				var size int64
+				if err := db.Raw("SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE()").Scan(&size).Error; err == nil {
+					o.ObserveInt64(dbSizeGauge, size)
+				}
+			} else if fi, err := os.Stat(dbPath); err == nil {
 				o.ObserveInt64(dbSizeGauge, fi.Size())
 			}
 

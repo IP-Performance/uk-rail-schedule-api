@@ -55,27 +55,23 @@ func (s *Store) GetStatus() (APIStatus, error) {
 		return status, errors.New("could not connect to database")
 	}
 
-	type sqlErr struct {
-		dest *interface{}
-		sql  string
-	}
-
 	queries := []struct {
 		sql  string
 		dest interface{}
+		args []interface{}
 	}{
-		{"select count(*) from schedules where source = 'Feed'", &status.ScheduleFileCount},
-		{"select count(*) from schedules where source = 'VSTP'", &status.VSTPCount},
-		{"select coalesce(min(published_at), '') from schedules where source = 'VSTP'", &status.EarliestVSTP},
-		{"select coalesce(max(published_at), '') from schedules where source = 'VSTP'", &status.LatestVSTP},
-		{"select count(*) from schedules where source = 'VSTP' and published_at > datetime('now', '-30 minutes')", &status.VSTPCountLastHalfHour},
-		{"select count(*) from schedules where source = 'VSTP' and published_at > datetime('now', '-60 minutes')", &status.VSTPCountLastHour},
-		{"select count(*) from schedules where source = 'VSTP' and published_at > datetime('now', '-360 minutes')", &status.VSTPCountLastSixHours},
-		{"select count(*) from schedules where source = 'VSTP' and published_at > datetime('now', '-1440 minutes')", &status.VSTPCountLastTwentyFourHours},
+		{"select count(*) from schedules where source = 'Feed'", &status.ScheduleFileCount, nil},
+		{"select count(*) from schedules where source = 'VSTP'", &status.VSTPCount, nil},
+		{"select coalesce(min(published_at), '') from schedules where source = 'VSTP'", &status.EarliestVSTP, nil},
+		{"select coalesce(max(published_at), '') from schedules where source = 'VSTP'", &status.LatestVSTP, nil},
+		{"select count(*) from schedules where source = 'VSTP' and published_at > ?", &status.VSTPCountLastHalfHour, []interface{}{time.Now().UTC().Add(-30 * time.Minute)}},
+		{"select count(*) from schedules where source = 'VSTP' and published_at > ?", &status.VSTPCountLastHour, []interface{}{time.Now().UTC().Add(-60 * time.Minute)}},
+		{"select count(*) from schedules where source = 'VSTP' and published_at > ?", &status.VSTPCountLastSixHours, []interface{}{time.Now().UTC().Add(-6 * time.Hour)}},
+		{"select count(*) from schedules where source = 'VSTP' and published_at > ?", &status.VSTPCountLastTwentyFourHours, []interface{}{time.Now().UTC().Add(-24 * time.Hour)}},
 	}
 
 	for _, q := range queries {
-		if err := s.DB.Raw(q.sql).Scan(q.dest).Error; err != nil {
+		if err := s.DB.Raw(q.sql, q.args...).Scan(q.dest).Error; err != nil {
 			return status, fmt.Errorf("error running sql: %w", err)
 		}
 	}

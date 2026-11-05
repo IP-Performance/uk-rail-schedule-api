@@ -29,6 +29,13 @@ func GetDatabaseFilename() string {
 	return path.Join(GetDataDir(), "/ukra.db")
 }
 
+// GetDatabaseDSN returns the optional MySQL DSN. An empty value selects the
+// SQLite file returned by GetDatabaseFilename, which remains useful for tests
+// and standalone development.
+func GetDatabaseDSN() string {
+	return os.Getenv("SCHEDULE_DB_DSN")
+}
+
 func GetStompConnectionDetails() (err error, url string, login string, password string) {
 	url = os.Getenv("NR_STOMP_URL")
 	if url == "" {

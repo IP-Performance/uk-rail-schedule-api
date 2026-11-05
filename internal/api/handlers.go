@@ -6,8 +6,8 @@ import (
 	"time"
 	"uk-rail-schedule-api/internal/schedule"
 	"uk-rail-schedule-api/internal/store"
-	"uk-rail-schedule-api/internal/telemetry"
 	internalsync "uk-rail-schedule-api/internal/sync"
+	"uk-rail-schedule-api/internal/telemetry"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
@@ -22,10 +22,28 @@ type ScheduleAPIResponse struct {
 	Schedules []schedule.Schedule `json:"schedules"`
 }
 
+type MovementAPIResponse struct {
+	Date            string                    `json:"date"`
+	MatchConfidence string                    `json:"match_confidence,omitempty"`
+	Movement        *TrustMovementAPIResponse `json:"movement"`
+}
+
+type TrustMovementAPIResponse struct {
+	Headcode        string     `json:"headcode,omitempty"`
+	TrainUID        string     `json:"train_uid,omitempty"`
+	ServiceDate     string     `json:"service_date"`
+	EventType       string     `json:"event_type"`
+	ActualTime      *time.Time `json:"actual_time,omitempty"`
+	PlannedTime     *time.Time `json:"planned_time,omitempty"`
+	LocationStanox  string     `json:"location_stanox,omitempty"`
+	Platform        string     `json:"platform,omitempty"`
+	VariationStatus string     `json:"variation_status,omitempty"`
+}
+
 // ErrResponse is a renderable error for chi/render.
 type ErrResponse struct {
-	Err            error `json:"-"`
-	HTTPStatusCode int   `json:"-"`
+	Err            error  `json:"-"`
+	HTTPStatusCode int    `json:"-"`
 	StatusText     string `json:"status"`
 	AppCode        int64  `json:"code,omitempty"`
 	ErrorText      string `json:"error,omitempty"`
@@ -152,10 +170,10 @@ func (h *Handler) LegacySchedulesCtx(next http.Handler) http.Handler {
 		}
 
 		resp := ScheduleAPIResponse{
-			Headcode: headcode,
-			Tiploc:   tiplocId,
-			TrainUID: trainUID,
-			Date:     date,
+			Headcode:  headcode,
+			Tiploc:    tiplocId,
+			TrainUID:  trainUID,
+			Date:      date,
 			Schedules: schedules,
 		}
 		ctx := context.WithValue(r.Context(), "schedules", resp)
@@ -192,6 +210,38 @@ func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	render.JSON(w, r, status)
+}
+
+// GetMovement returns the latest stored ScotRail TRUST movement for a schedule
+// UID or an unambiguous headcode on the requested service date.
+func (h *Handler) GetMovement(w http.ResponseWriter, r *http.Request) {
+	identifierType := chi.URLParam(r, "identifierType")
+	identifier := chi.URLParam(r, "identifier")
+	date := r.URL.Query().Get("date")
+	if date == "" {
+		date = time.Now().In(time.Local).Format("2006-01-02")
+	}
+	if _, err := time.Parse("2006-01-02", date); err != nil {
+		http.Error(w, "date must be YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+	movement, confidence, err := h.Store.GetLatestTrustMovement(identifierType, identifier, date)
+	if err != nil {
+		telemetry.RecordError(r.Context(), "db")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	response := MovementAPIResponse{Date: date, MatchConfidence: confidence}
+	if movement != nil {
+		response.Movement = &TrustMovementAPIResponse{
+			Headcode: movement.Headcode, TrainUID: movement.TrainUID,
+			ServiceDate: movement.ServiceDate, EventType: movement.EventType,
+			ActualTime: movement.ActualTimestamp, PlannedTime: movement.PlannedTimestamp,
+			LocationStanox: movement.LocationStanox, Platform: movement.Platform,
+			VariationStatus: movement.VariationStatus,
+		}
+	}
+	render.JSON(w, r, response)
 }
 
 func (h *Handler) RunRefresh(w http.ResponseWriter, r *http.Request) {

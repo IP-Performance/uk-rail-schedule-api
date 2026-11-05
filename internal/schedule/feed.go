@@ -12,7 +12,7 @@ type ScheduleFeedRecord struct {
 
 type Tiploc struct {
 	TransactionType string `json:"transaction_type"`
-	TiplocCode      string `gorm:"index" json:"tiploc_code"`
+	TiplocCode      string `gorm:"size:16;uniqueIndex" json:"tiploc_code"`
 	Nalco           string `json:"nalco"`
 	Stanox          string `json:"stanox"`
 	CrsCode         string `json:"crs_code"`

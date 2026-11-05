@@ -5,6 +5,7 @@ The UK Rail Schedule API is a service that provides access to detailed UK train 
 The service
 - Loads data from a SCHEDULE feed file in json format
 - Loads Very Short Term Planning (VSTP) updates from Network Rail's STOMP messaging service
+- Collects TRUST train movements from `TRAIN_MVT_ALL_TOC`, retaining normalized ScotRail events only
 - Responds to http requests from clients for information on train schedules 
 
 If you want
@@ -65,6 +66,8 @@ You can further filter on location, date or train operating code by adding one o
 
 The /schedules endpoint will return an array of schedules. Any applicable overlays that have been received from the VSTP service will be applied to any schedules returned.
 
+The Docker `syncd` service also consumes the Network Rail TRUST `TRAIN_MVT_ALL_TOC` topic. It correlates activations and movement reports, stores normalized ScotRail-only movement data in the configured database, and retains it for `TRUST_MOVEMENT_RETENTION_DAYS` (7 days by default). The movement endpoint is `/api/movements/{trainuid|headcode}/{identifier}?date=YYYY-MM-DD`; headcode lookups are returned only when the headcode identifies one train on that service date.
+
 The structure is similar to that described [here](https://wiki.openraildata.com/index.php?title=Schedule_Records) with the following differences
 
 1. the schedule_segment and new_schedule_segments are flattened into the main schedule structure
@@ -122,7 +125,8 @@ The UK Rail Schedule API delivers schedule information in a simplified form, but
 ## Additional Information
 
 - There is a wealth of information about feeds, schedules and other UK railway information over at the [Open Rail Data Wikiurl](https://wiki.openraildata.com/index.php)
-- The API uses a SQLite database as the data source for improved performance and reliability.
+- The API supports SQLite for standalone development and MySQL for the Docker deployment.
+- For the Docker deployment, set `SCHEDULE_DB_DSN` to a GORM MySQL DSN to use the host's MySQL server. The Compose file mounts `/var/run/mysqld` read-only so containers can use the local Unix socket without exposing MySQL on the network. When `SCHEDULE_DB_DSN` is empty, the API continues to use the SQLite file under `DATA_DIR`.
 - It's important to regularly update the schedule data by re-running the Data Loader mode with the latest Network Rail schedule JSON file. The
 - The API provides detailed information about train schedules to assist developers and applications in accessing and utilizing this data efficiently.
 

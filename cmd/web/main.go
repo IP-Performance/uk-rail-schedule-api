@@ -49,7 +49,7 @@ func main() {
 		}
 	}()
 
-	database, err := db.Open(config.GetDatabaseFilename())
+	database, err := db.OpenConfigured(config.GetDatabaseFilename(), config.GetDatabaseDSN())
 	if err != nil {
 		slog.Error("Failed to open database", "error", err)
 		os.Exit(1)
@@ -103,6 +103,7 @@ func main() {
 			r.Use(h.StatusCtx)
 			r.Get("/", h.GetStatus)
 		})
+		r.Get("/movements/{identifierType}/{identifier}", h.GetMovement)
 		r.Route("/refresh", func(r chi.Router) {
 			r.Get("/", h.RunRefresh)
 		})
