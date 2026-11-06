@@ -68,6 +68,13 @@ The /schedules endpoint will return an array of schedules. Any applicable overla
 
 The Docker `syncd` service also consumes the Network Rail TRUST `TRAIN_MVT_ALL_TOC` topic. It correlates activations and movement reports, stores normalized ScotRail-only movement data in the configured database, and retains it for `TRUST_MOVEMENT_RETENTION_DAYS` (7 days by default). The movement endpoint is `/api/movements/{trainuid|headcode}/{identifier}?date=YYYY-MM-DD`; headcode lookups are returned only when the headcode identifies one train on that service date. Optional `location=TIPLOC` and `events=DEPARTURE,ARRIVAL,PASS` parameters restrict the result to a movement at a specific timetable stop. The API maps TIPLOC to STANOX so a caller can match an event to one leg instead of reusing a train-wide latest event at every stop.
 
+`/api/movements/{trainuid|headcode}/{identifier}/route?date=YYYY-MM-DD` returns
+all retained actual movement reports for an unambiguous service, ordered by
+actual time. Clients can align these STANOX reports to the service's ordered
+schedule locations to show its last reported route position and stop-by-stop
+actual times. Ambiguous identifiers return an empty movement list and a
+`match_confidence` value indicating the ambiguity.
+
 The structure is similar to that described [here](https://wiki.openraildata.com/index.php?title=Schedule_Records) with the following differences
 
 1. the schedule_segment and new_schedule_segments are flattened into the main schedule structure

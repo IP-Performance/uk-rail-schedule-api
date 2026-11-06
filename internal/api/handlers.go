@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -28,6 +29,12 @@ type MovementAPIResponse struct {
 	Date            string                    `json:"date"`
 	MatchConfidence string                    `json:"match_confidence,omitempty"`
 	Movement        *TrustMovementAPIResponse `json:"movement"`
+}
+
+type MovementRouteAPIResponse struct {
+	Date            string                     `json:"date"`
+	MatchConfidence string                     `json:"match_confidence,omitempty"`
+	Movements       []TrustMovementAPIResponse `json:"movements"`
 }
 
 type TrustMovementAPIResponse struct {
@@ -260,6 +267,63 @@ func (h *Handler) GetMovement(w http.ResponseWriter, r *http.Request) {
 			LocationStanox: movement.LocationStanox, Platform: movement.Platform,
 			VariationStatus: movement.VariationStatus,
 		}
+	}
+	render.JSON(w, r, response)
+}
+
+// GetMovementRoute returns all retained TRUST reports for one service so a
+// client can place them against the service's ordered timetable locations.
+func (h *Handler) GetMovementRoute(w http.ResponseWriter, r *http.Request) {
+	identifierType := chi.URLParam(r, "identifierType")
+	identifier := strings.TrimSpace(chi.URLParam(r, "identifier"))
+	if identifierType != "trainuid" && identifierType != "headcode" {
+		http.Error(w, "identifierType must be trainuid or headcode", http.StatusBadRequest)
+		return
+	}
+	if identifier == "" || len(identifier) > 32 {
+		http.Error(w, "identifier must contain 1 to 32 characters", http.StatusBadRequest)
+		return
+	}
+	if identifierType == "headcode" && !regexp.MustCompile(`(?i)^[A-Z0-9]{4}$`).MatchString(identifier) {
+		http.Error(w, "headcode must contain four letters or digits", http.StatusBadRequest)
+		return
+	}
+	if identifierType == "trainuid" && !regexp.MustCompile(`(?i)^[A-Z0-9]{1,16}$`).MatchString(identifier) {
+		http.Error(w, "trainuid must contain only letters and digits", http.StatusBadRequest)
+		return
+	}
+	location, err := time.LoadLocation("Europe/London")
+	if err != nil {
+		http.Error(w, "could not load service timezone", http.StatusInternalServerError)
+		return
+	}
+	date := r.URL.Query().Get("date")
+	if date == "" {
+		date = time.Now().In(location).Format("2006-01-02")
+	}
+	if _, err := time.Parse("2006-01-02", date); err != nil {
+		http.Error(w, "date must be YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+
+	movements, confidence, err := h.Store.GetTrustMovementRoute(identifierType, identifier, date)
+	if err != nil {
+		telemetry.RecordError(r.Context(), "db")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	response := MovementRouteAPIResponse{
+		Date: date, MatchConfidence: confidence,
+		Movements: make([]TrustMovementAPIResponse, 0, len(movements)),
+	}
+	for _, movement := range movements {
+		response.Movements = append(response.Movements, TrustMovementAPIResponse{
+			Headcode: movement.Headcode, TrainUID: movement.TrainUID,
+			ServiceDate: movement.ServiceDate, EventType: movement.EventType,
+			ActualTime: movement.ActualTimestamp, PlannedTime: movement.PlannedTimestamp,
+			LocationStanox: movement.LocationStanox, Platform: movement.Platform,
+			VariationStatus: movement.VariationStatus,
+		})
 	}
 	render.JSON(w, r, response)
 }

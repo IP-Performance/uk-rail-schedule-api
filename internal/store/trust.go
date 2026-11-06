@@ -75,3 +75,54 @@ func (s *Store) GetLatestTrustMovement(identifierType, identifier, serviceDate, 
 	}
 	return &movement, confidence, nil
 }
+
+// GetTrustMovementRoute returns the retained movement reports for one train
+// service, ordered by actual time. Headcode and UID lookups are rejected when
+// they map to multiple train activations on the same service date.
+func (s *Store) GetTrustMovementRoute(identifierType, identifier, serviceDate string) ([]schedule.TrustMovement, string, error) {
+	if s.DB == nil {
+		return nil, "", errors.New("db is nil")
+	}
+	buildQuery := func() *gorm.DB {
+		query := s.DB.Model(&schedule.TrustMovement{}).
+			Where("toc_id = ? AND service_date = ?", "60", serviceDate)
+		switch identifierType {
+		case "trainuid":
+			return query.Where("train_uid = ?", identifier)
+		case "headcode":
+			return query.Where("headcode = ?", identifier)
+		default:
+			return query
+		}
+	}
+	confidence := "schedule_uid"
+	switch identifierType {
+	case "trainuid":
+	case "headcode":
+		confidence = "unique_headcode"
+	default:
+		return nil, "", fmt.Errorf("unsupported movement identifier type %q", identifierType)
+	}
+
+	var trainCount int64
+	if err := buildQuery().Distinct("train_id").Count(&trainCount).Error; err != nil {
+		return nil, "", fmt.Errorf("count TRUST route candidates: %w", err)
+	}
+	if trainCount > 1 {
+		if identifierType == "trainuid" {
+			return []schedule.TrustMovement{}, "ambiguous_trainuid", nil
+		}
+		return []schedule.TrustMovement{}, "ambiguous_headcode", nil
+	}
+	if trainCount == 0 {
+		return []schedule.TrustMovement{}, confidence, nil
+	}
+
+	var movements []schedule.TrustMovement
+	err := buildQuery().Where("actual_timestamp IS NOT NULL").
+		Order("actual_timestamp ASC").Order("id ASC").Find(&movements).Error
+	if err != nil {
+		return nil, "", fmt.Errorf("query TRUST route movements: %w", err)
+	}
+	return movements, confidence, nil
+}
