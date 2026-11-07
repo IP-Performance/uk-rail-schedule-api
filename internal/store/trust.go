@@ -126,3 +126,18 @@ func (s *Store) GetTrustMovementRoute(identifierType, identifier, serviceDate st
 	}
 	return movements, confidence, nil
 }
+
+// GetTDPositions returns the current berth occupancy records for a headcode.
+// A headcode may temporarily appear in more than one area during a handover.
+func (s *Store) GetTDPositions(headcode string) ([]schedule.TDPosition, error) {
+	var positions []schedule.TDPosition
+	if s.DB == nil {
+		return positions, errors.New("db is nil")
+	}
+	err := s.DB.Where("headcode = ?", strings.ToUpper(strings.TrimSpace(headcode))).
+		Order("event_at DESC").Order("area_id").Order("berth").Find(&positions).Error
+	if err != nil {
+		return nil, fmt.Errorf("query TD positions: %w", err)
+	}
+	return positions, nil
+}

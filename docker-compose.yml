@@ -7,6 +7,11 @@ services:
       DATA_DIR: /app/data
       SCHEDULE_FEED_FILENAME: /app/data/schedule.json
       LOG_FILENAME: ""
+      TD_URL: ${TD_URL:-}
+      TD_GROUP: ${TD_GROUP:-}
+      TD_USER: ${TD_USER:-}
+      TD_PASSWORD: ${TD_PASSWORD:-}
+      TD_TOPIC: ${TD_TOPIC:-TD_ALL_SIG_AREA}
     volumes:
       - ../uk-rail-schedule-runtime/data:/app/data
       - /var/run/mysqld:/var/run/mysqld:ro

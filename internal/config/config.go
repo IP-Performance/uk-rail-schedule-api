@@ -5,7 +5,18 @@ import (
 	"log/slog"
 	"os"
 	"path"
+	"strings"
 )
+
+// TDConsumerConfig contains the RDM/Confluent Kafka settings for Train
+// Describer messages. Empty broker and group settings disable the consumer.
+type TDConsumerConfig struct {
+	Brokers  []string
+	Topic    string
+	GroupID  string
+	Username string
+	Password string
+}
 
 func GetScheduleFeedFilename() string {
 	filename := os.Getenv("SCHEDULE_FEED_FILENAME")
@@ -50,6 +61,42 @@ func GetStompConnectionDetails() (err error, url string, login string, password 
 		return err, url, login, password
 	}
 	return nil, url, login, password
+}
+
+func GetTDConsumerConfig() (TDConsumerConfig, bool, error) {
+	brokers := strings.TrimSpace(os.Getenv("TD_URL"))
+	groupID := strings.TrimSpace(os.Getenv("TD_GROUP"))
+	username := os.Getenv("TD_USER")
+	password := os.Getenv("TD_PASSWORD")
+	if brokers == "" && groupID == "" && username == "" && password == "" {
+		return TDConsumerConfig{}, false, nil
+	}
+	missing := make([]string, 0, 4)
+	for _, item := range []struct{ name, value string }{
+		{"TD_URL", brokers}, {"TD_GROUP", groupID},
+		{"TD_USER", username}, {"TD_PASSWORD", password},
+	} {
+		if strings.TrimSpace(item.value) == "" {
+			missing = append(missing, item.name)
+		}
+	}
+	if len(missing) > 0 {
+		return TDConsumerConfig{}, false, errors.New("TD Kafka settings are incomplete; missing " + strings.Join(missing, ", "))
+	}
+	parsedBrokers := make([]string, 0, 2)
+	for _, broker := range strings.Split(brokers, ",") {
+		if broker = strings.TrimSpace(broker); broker != "" {
+			parsedBrokers = append(parsedBrokers, broker)
+		}
+	}
+	topic := strings.TrimSpace(os.Getenv("TD_TOPIC"))
+	if topic == "" {
+		topic = "TD_ALL_SIG_AREA"
+	}
+	return TDConsumerConfig{
+		Brokers: parsedBrokers, Topic: topic, GroupID: groupID,
+		Username: username, Password: password,
+	}, true, nil
 }
 
 func GetHTTPListenAddress() string {

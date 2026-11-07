@@ -49,6 +49,14 @@ type TrustMovementAPIResponse struct {
 	VariationStatus string     `json:"variation_status,omitempty"`
 }
 
+type TDPositionAPIResponse struct {
+	Headcode   string    `json:"headcode"`
+	AreaID     string    `json:"area_id"`
+	Berth      string    `json:"berth"`
+	EventTime  time.Time `json:"event_time"`
+	AgeSeconds int64     `json:"age_seconds"`
+}
+
 // ErrResponse is a renderable error for chi/render.
 type ErrResponse struct {
 	Err            error  `json:"-"`
@@ -326,6 +334,39 @@ func (h *Handler) GetMovementRoute(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 	render.JSON(w, r, response)
+}
+
+// GetTDPositions returns the latest stored berth positions for a train
+// description. TD positions are signalling locations, not GPS coordinates.
+func (h *Handler) GetTDPositions(w http.ResponseWriter, r *http.Request) {
+	headcode := strings.ToUpper(strings.TrimSpace(chi.URLParam(r, "headcode")))
+	if !regexp.MustCompile(`^[A-Z0-9]{4}$`).MatchString(headcode) {
+		http.Error(w, "headcode must contain four letters or digits", http.StatusBadRequest)
+		return
+	}
+	positions, err := h.Store.GetTDPositions(headcode)
+	if err != nil {
+		telemetry.RecordError(r.Context(), "db")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	now := time.Now().UTC()
+	response := make([]TDPositionAPIResponse, 0, len(positions))
+	for _, position := range positions {
+		age := int64(now.Sub(position.EventAt).Seconds())
+		if age < 0 {
+			age = 0
+		}
+		response = append(response, TDPositionAPIResponse{
+			Headcode: position.Headcode, AreaID: position.AreaID,
+			Berth: position.Berth, EventTime: position.EventAt,
+			AgeSeconds: age,
+		})
+	}
+	render.JSON(w, r, map[string]interface{}{
+		"headcode":  headcode,
+		"positions": response,
+	})
 }
 
 func (h *Handler) RunRefresh(w http.ResponseWriter, r *http.Request) {

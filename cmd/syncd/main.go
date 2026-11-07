@@ -1,6 +1,5 @@
 // syncd is a long-running daemon that keeps the schedule database up-to-date.
-// It loads the initial schedule feed file into SQLite and listens for real-time
-// VSTP updates via the Network Rail STOMP feed.
+// It loads the initial schedule feed and listens for VSTP, TRUST, and TD updates.
 package main
 
 import (
@@ -26,7 +25,8 @@ func main() {
 	logger := setupLogger()
 	slog.SetDefault(logger)
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	shutdownTelemetry := telemetry.Setup(ctx, "uk-rail-schedule-api-syncd", version)
 	defer func() {
 		if err := shutdownTelemetry(ctx); err != nil {
@@ -59,11 +59,20 @@ func main() {
 		go internalsync.ListenForVSTP(database, stompURL, login, password, config.GetDataDir())
 		go internalsync.ListenForTrustMovements(database, stompURL, login, password)
 	}
+	tdConfig, tdEnabled, tdErr := config.GetTDConsumerConfig()
+	if tdErr != nil {
+		slog.Error("Train Describer consumer is not configured correctly", "error", tdErr)
+	} else if tdEnabled {
+		go internalsync.ListenForTDPositions(ctx, database, tdConfig)
+	} else {
+		slog.Info("Train Describer Kafka consumer is disabled")
+	}
 
 	// Block until a termination signal is received
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+	cancel()
 	slog.Info("Shutting down syncd")
 }
 

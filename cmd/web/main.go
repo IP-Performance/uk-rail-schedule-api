@@ -105,6 +105,7 @@ func main() {
 		})
 		r.Get("/movements/{identifierType}/{identifier}", h.GetMovement)
 		r.Get("/movements/{identifierType}/{identifier}/route", h.GetMovementRoute)
+		r.Get("/td/positions/{headcode}", h.GetTDPositions)
 		r.Route("/refresh", func(r chi.Router) {
 			r.Get("/", h.RunRefresh)
 		})

@@ -6,6 +6,7 @@ The service
 - Loads data from a SCHEDULE feed file in json format
 - Loads Very Short Term Planning (VSTP) updates from Network Rail's STOMP messaging service
 - Collects TRUST train movements from `TRAIN_MVT_ALL_TOC`, retaining normalized ScotRail events only
+- Consumes Train Describer C-class messages from the RDM Kafka `TD_ALL_SIG_AREA` topic, retaining current berth positions only
 - Responds to http requests from clients for information on train schedules 
 
 If you want
@@ -74,6 +75,22 @@ actual time. Clients can align these STANOX reports to the service's ordered
 schedule locations to show its last reported route position and stop-by-stop
 actual times. Ambiguous identifiers return an empty movement list and a
 `match_confidence` value indicating the ambiguity.
+
+The `syncd` container also consumes Train Describer C-class CA, CB, and CC
+messages from Kafka. It keeps only the latest train-description occupancy for
+each area and berth, rather than storing the high-volume raw event stream.
+Configure `TD_URL`, `TD_GROUP`, `TD_USER`, and `TD_PASSWORD` in the parent RSM
+`.env`; `TD_TOPIC` defaults to `TD_ALL_SIG_AREA`. Start or rebuild the containers
+from this directory with `docker-compose --env-file ../.env up -d --build syncd web`
+so Compose passes the TD settings into `syncd`. Use a different Kafka group for
+each environment that needs a complete copy of the stream; consumers sharing a
+group divide partitions between themselves.
+
+`/api/td/positions/{headcode}` returns current berth records with event times
+and age in seconds. A berth is a signalling location, not a geographic
+coordinate; mapping berths to stations or track positions is a separate step.
+The consumer stores current occupancy only, so it begins learning positions as
+new TD steps arrive and its state warms after startup.
 
 The structure is similar to that described [here](https://wiki.openraildata.com/index.php?title=Schedule_Records) with the following differences
 

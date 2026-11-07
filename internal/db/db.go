@@ -58,6 +58,7 @@ func open(dialector gorm.Dialector) (*gorm.DB, error) {
 		&schedule.Timetable{},
 		&schedule.TrustRun{},
 		&schedule.TrustMovement{},
+		&schedule.TDPosition{},
 	); err != nil {
 		return nil, err
 	}
