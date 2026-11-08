@@ -155,13 +155,26 @@ func applyTDEvent(tx *gorm.DB, event tdEvent) error {
 	switch event.MessageType {
 	case "CA":
 		from := strings.ToUpper(strings.TrimSpace(message.From))
+		to := strings.ToUpper(strings.TrimSpace(message.To))
 		if from != "" {
 			if err := tx.Where("area_id = ? AND berth = ?", areaID, from).
 				Delete(&schedule.TDPosition{}).Error; err != nil {
 				return fmt.Errorf("clear stepped-from berth: %w", err)
 			}
 		}
-		return upsertTDPosition(tx, areaID, strings.ToUpper(strings.TrimSpace(message.To)), headcode, eventAt)
+		stationStanox := ""
+		if from != "" && to != "" {
+			var stanoxCodes []string
+			if err := tx.Model(&schedule.SMARTBerthStep{}).
+				Where("area = ? AND from_berth = ? AND to_berth = ?", areaID, from, to).
+				Distinct().Pluck("stanox", &stanoxCodes).Error; err != nil {
+				return fmt.Errorf("lookup SMART berth transition: %w", err)
+			}
+			if len(stanoxCodes) == 1 {
+				stationStanox = stanoxCodes[0]
+			}
+		}
+		return upsertTDPosition(tx, areaID, to, headcode, stationStanox, eventAt)
 	case "CB":
 		from := strings.ToUpper(strings.TrimSpace(message.From))
 		if from == "" {
@@ -170,19 +183,19 @@ func applyTDEvent(tx *gorm.DB, event tdEvent) error {
 		return tx.Where("area_id = ? AND berth = ? AND headcode = ?", areaID, from, headcode).
 			Delete(&schedule.TDPosition{}).Error
 	case "CC":
-		return upsertTDPosition(tx, areaID, strings.ToUpper(strings.TrimSpace(message.To)), headcode, eventAt)
+		return upsertTDPosition(tx, areaID, strings.ToUpper(strings.TrimSpace(message.To)), headcode, "", eventAt)
 	default:
 		return nil
 	}
 }
 
-func upsertTDPosition(tx *gorm.DB, areaID, berth, headcode string, eventAt time.Time) error {
+func upsertTDPosition(tx *gorm.DB, areaID, berth, headcode, stationStanox string, eventAt time.Time) error {
 	if areaID == "" || berth == "" {
 		return nil
 	}
 	position := schedule.TDPosition{
 		AreaID: areaID, Berth: berth, Headcode: headcode,
-		EventAt: eventAt.UTC(), UpdatedAt: time.Now().UTC(),
+		Stanox: stationStanox, EventAt: eventAt.UTC(), UpdatedAt: time.Now().UTC(),
 	}
 	// A headcode should occupy one berth per TD area. Remove any older state in
 	// the area before recording its new berth, including state left by a missed

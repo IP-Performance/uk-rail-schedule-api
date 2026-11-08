@@ -50,6 +50,14 @@ func open(dialector gorm.Dialector) (*gorm.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Earlier SMART imports used a unique key that incorrectly rejected valid
+	// transitions shared by multiple STANOX codes. Remove that legacy key so
+	// the ambiguity check can decide whether a mapping is safe.
+	if database.Migrator().HasIndex(&schedule.SMARTBerthStep{}, "smart_step_key") {
+		if err := database.Migrator().DropIndex(&schedule.SMARTBerthStep{}, "smart_step_key"); err != nil {
+			return nil, err
+		}
+	}
 
 	if err := database.AutoMigrate(
 		&schedule.Tiploc{},
@@ -59,6 +67,8 @@ func open(dialector gorm.Dialector) (*gorm.DB, error) {
 		&schedule.TrustRun{},
 		&schedule.TrustMovement{},
 		&schedule.TDPosition{},
+		&schedule.DarwinTiming{},
+		&schedule.SMARTBerthStep{},
 	); err != nil {
 		return nil, err
 	}

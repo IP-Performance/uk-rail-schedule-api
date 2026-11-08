@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,16 +46,32 @@ type TrustMovementAPIResponse struct {
 	ActualTime      *time.Time `json:"actual_time,omitempty"`
 	PlannedTime     *time.Time `json:"planned_time,omitempty"`
 	LocationStanox  string     `json:"location_stanox,omitempty"`
+	LocationTIPLOC  string     `json:"location_tiploc,omitempty"`
 	Platform        string     `json:"platform,omitempty"`
 	VariationStatus string     `json:"variation_status,omitempty"`
+	ForecastTime    *time.Time `json:"forecast_time,omitempty"`
+	Source          string     `json:"source,omitempty"`
 }
 
 type TDPositionAPIResponse struct {
 	Headcode   string    `json:"headcode"`
 	AreaID     string    `json:"area_id"`
 	Berth      string    `json:"berth"`
+	Stanox     string    `json:"stanox,omitempty"`
+	TIPLOC     string    `json:"tiploc,omitempty"`
+	Location   string    `json:"location,omitempty"`
 	EventTime  time.Time `json:"event_time"`
 	AgeSeconds int64     `json:"age_seconds"`
+}
+
+type DarwinTimingAPIResponse struct {
+	TrainUID       string     `json:"train_uid"`
+	ServiceDate    string     `json:"service_date"`
+	LocationTIPLOC string     `json:"location_tiploc"`
+	EventType      string     `json:"event_type"`
+	ActualTime     *time.Time `json:"actual_time,omitempty"`
+	ForecastTime   *time.Time `json:"forecast_time,omitempty"`
+	Source         string     `json:"source"`
 }
 
 // ErrResponse is a renderable error for chi/render.
@@ -276,6 +293,23 @@ func (h *Handler) GetMovement(w http.ResponseWriter, r *http.Request) {
 			VariationStatus: movement.VariationStatus,
 		}
 	}
+	if identifierType == "trainuid" {
+		darwin, err := h.darwinRouteMovements(identifier, date)
+		if err != nil {
+			telemetry.RecordError(r.Context(), "db")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		for _, item := range darwin {
+			if item.LocationTIPLOC != tiploc || !apiEventAllowed(item.EventType, eventTypes) {
+				continue
+			}
+			if response.Movement == nil || darwinTimingNewer(item, *response.Movement) {
+				response.Movement = &item
+				response.MatchConfidence = "schedule_uid"
+			}
+		}
+	}
 	render.JSON(w, r, response)
 }
 
@@ -333,7 +367,124 @@ func (h *Handler) GetMovementRoute(w http.ResponseWriter, r *http.Request) {
 			VariationStatus: movement.VariationStatus,
 		})
 	}
+	if identifierType == "trainuid" {
+		darwin, err := h.darwinRouteMovements(identifier, date)
+		if err != nil {
+			telemetry.RecordError(r.Context(), "db")
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		response.Movements = append(response.Movements, darwin...)
+	}
 	render.JSON(w, r, response)
+}
+
+func (h *Handler) darwinRouteMovements(trainUID, serviceDate string) ([]TrustMovementAPIResponse, error) {
+	timings, err := h.Store.GetDarwinTimings(trainUID, serviceDate)
+	if err != nil {
+		return nil, err
+	}
+	schedules, err := h.Store.GetSchedules("", trainUID, serviceDate, "any", "", false)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]TrustMovementAPIResponse, 0, len(timings))
+	for _, timing := range timings {
+		eventType := strings.ToUpper(timing.EventType)
+		var planned *time.Time
+		for _, timetable := range schedules {
+			for _, stop := range timetable.ScheduleLocation {
+				if !strings.EqualFold(stop.TiplocCode, timing.Tiploc) {
+					continue
+				}
+				var clock string
+				switch eventType {
+				case "ARR":
+					clock = firstScheduleClock(stop.PublicArrival, stop.Arrival)
+				case "DEP":
+					clock = firstScheduleClock(stop.PublicDeparture, stop.Departure)
+				case "PASS":
+					clock = stop.Pass
+				}
+				planned = scheduleDateTime(serviceDate, clock)
+				if planned != nil {
+					break
+				}
+			}
+			if planned != nil {
+				break
+			}
+		}
+		name := map[string]string{"ARR": "ARRIVAL", "DEP": "DEPARTURE", "PASS": "PASS"}[eventType]
+		if name == "" {
+			continue
+		}
+		result = append(result, TrustMovementAPIResponse{TrainUID: timing.TrainUID, ServiceDate: timing.ServiceDate,
+			EventType: name, ActualTime: timing.ActualTime, PlannedTime: planned, ForecastTime: timing.ForecastTime,
+			LocationTIPLOC: timing.Tiploc, Source: "DARWIN"})
+	}
+	return result, nil
+}
+
+func firstScheduleClock(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func scheduleDateTime(serviceDate, scheduleClock string) *time.Time {
+	digits := regexp.MustCompile(`[^0-9]`).ReplaceAllString(scheduleClock, "")
+	if len(digits) < 4 {
+		return nil
+	}
+	hour, err := strconv.Atoi(digits[:2])
+	if err != nil || hour > 47 {
+		return nil
+	}
+	minute, err := strconv.Atoi(digits[2:4])
+	if err != nil || minute > 59 {
+		return nil
+	}
+	zone, err := time.LoadLocation("Europe/London")
+	if err != nil {
+		zone = time.UTC
+	}
+	date, err := time.ParseInLocation("2006-01-02", serviceDate, zone)
+	if err != nil {
+		return nil
+	}
+	planned := date.Add(time.Duration(hour)*time.Hour + time.Duration(minute)*time.Minute).UTC()
+	return &planned
+}
+
+func apiEventAllowed(eventType, requested string) bool {
+	if requested == "" {
+		return true
+	}
+	for _, part := range strings.Split(requested, ",") {
+		if strings.EqualFold(strings.TrimSpace(part), eventType) {
+			return true
+		}
+	}
+	return false
+}
+
+func darwinTimingNewer(candidate, current TrustMovementAPIResponse) bool {
+	candidateTime := candidate.ActualTime
+	if candidateTime == nil {
+		candidateTime = candidate.ForecastTime
+	}
+	currentTime := current.ActualTime
+	if currentTime == nil {
+		currentTime = current.ForecastTime
+	}
+	if candidateTime == nil {
+		return false
+	}
+	return currentTime == nil || candidateTime.After(*currentTime)
 }
 
 // GetTDPositions returns the latest stored berth positions for a train
@@ -361,12 +512,58 @@ func (h *Handler) GetTDPositions(w http.ResponseWriter, r *http.Request) {
 			Headcode: position.Headcode, AreaID: position.AreaID,
 			Berth: position.Berth, EventTime: position.EventAt,
 			AgeSeconds: age,
+			Stanox:     position.Stanox,
 		})
+		if position.Stanox != "" {
+			var place schedule.Tiploc
+			if err := h.Store.DB.Where("stanox = ?", position.Stanox).Order("tiploc_code").First(&place).Error; err == nil {
+				response[len(response)-1].TIPLOC = place.TiplocCode
+				response[len(response)-1].Location = place.TpsDescription
+				if response[len(response)-1].Location == "" {
+					response[len(response)-1].Location = place.Description
+				}
+			}
+		}
 	}
 	render.JSON(w, r, map[string]interface{}{
 		"headcode":  headcode,
 		"positions": response,
 	})
+}
+
+// GetDarwinRoute returns Darwin actual and forecast timings for a UID/date.
+func (h *Handler) GetDarwinRoute(w http.ResponseWriter, r *http.Request) {
+	trainUID := strings.ToUpper(strings.TrimSpace(chi.URLParam(r, "trainuid")))
+	if !regexp.MustCompile(`^[A-Z0-9]{1,16}$`).MatchString(trainUID) {
+		http.Error(w, "trainuid must contain only letters and digits", http.StatusBadRequest)
+		return
+	}
+	loc, err := time.LoadLocation("Europe/London")
+	if err != nil {
+		http.Error(w, "could not load service timezone", http.StatusInternalServerError)
+		return
+	}
+	date := r.URL.Query().Get("date")
+	if date == "" {
+		date = time.Now().In(loc).Format("2006-01-02")
+	}
+	if _, err := time.Parse("2006-01-02", date); err != nil {
+		http.Error(w, "date must be YYYY-MM-DD", http.StatusBadRequest)
+		return
+	}
+	timings, err := h.Store.GetDarwinTimings(trainUID, date)
+	if err != nil {
+		telemetry.RecordError(r.Context(), "db")
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	response := make([]DarwinTimingAPIResponse, 0, len(timings))
+	for _, timing := range timings {
+		response = append(response, DarwinTimingAPIResponse{TrainUID: timing.TrainUID, ServiceDate: timing.ServiceDate,
+			LocationTIPLOC: timing.Tiploc, EventType: strings.ToUpper(timing.EventType), ActualTime: timing.ActualTime,
+			ForecastTime: timing.ForecastTime, Source: "DARWIN"})
+	}
+	render.JSON(w, r, map[string]interface{}{"date": date, "train_uid": trainUID, "timings": response})
 }
 
 func (h *Handler) RunRefresh(w http.ResponseWriter, r *http.Request) {

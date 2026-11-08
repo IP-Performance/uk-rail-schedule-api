@@ -141,3 +141,17 @@ func (s *Store) GetTDPositions(headcode string) ([]schedule.TDPosition, error) {
 	}
 	return positions, nil
 }
+
+// GetDarwinTimings returns the latest retained Darwin timing changes for a UID/date.
+func (s *Store) GetDarwinTimings(trainUID, serviceDate string) ([]schedule.DarwinTiming, error) {
+	var timings []schedule.DarwinTiming
+	if s.DB == nil {
+		return timings, errors.New("db is nil")
+	}
+	err := s.DB.Where("train_uid = ? AND service_date = ?", strings.ToUpper(strings.TrimSpace(trainUID)), serviceDate).
+		Order("tiploc").Order("event_type").Find(&timings).Error
+	if err != nil {
+		return nil, fmt.Errorf("query Darwin timings: %w", err)
+	}
+	return timings, nil
+}

@@ -58,6 +58,15 @@ func main() {
 	} else {
 		go internalsync.ListenForVSTP(database, stompURL, login, password, config.GetDataDir())
 		go internalsync.ListenForTrustMovements(database, stompURL, login, password)
+		go internalsync.RefreshSMARTReference(ctx, database, login, password)
+	}
+	darwinConfig, darwinEnabled, darwinErr := config.GetDarwinConsumerConfig()
+	if darwinErr != nil {
+		slog.Error("Darwin consumer is not configured correctly", "error", darwinErr)
+	} else if darwinEnabled {
+		go internalsync.ListenForDarwin(ctx, database, darwinConfig)
+	} else {
+		slog.Info("Darwin Kafka consumer is disabled")
 	}
 	tdConfig, tdEnabled, tdErr := config.GetTDConsumerConfig()
 	if tdErr != nil {

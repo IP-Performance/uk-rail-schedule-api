@@ -7,6 +7,8 @@ The service
 - Loads Very Short Term Planning (VSTP) updates from Network Rail's STOMP messaging service
 - Collects TRUST train movements from `TRAIN_MVT_ALL_TOC`, retaining normalized ScotRail events only
 - Consumes Train Describer C-class messages from the RDM Kafka `TD_ALL_SIG_AREA` topic, retaining current berth positions only
+- Consumes Darwin RDM Push Port updates, retaining the latest actual and forecast timings per service stop
+- Downloads Network Rail's SMART berth reference daily to map TD berth steps to STANOX
 - Responds to http requests from clients for information on train schedules 
 
 If you want
@@ -91,6 +93,22 @@ and age in seconds. A berth is a signalling location, not a geographic
 coordinate; mapping berths to stations or track positions is a separate step.
 The consumer stores current occupancy only, so it begins learning positions as
 new TD steps arrive and its state warms after startup.
+The API also downloads the Network Rail SMART supporting file once per day
+using the existing `NR_STOMP_LOGIN` and `NR_STOMP_PASSWORD`; it retries every
+15 minutes if a download fails. SMART transition rows map a TD area and berth
+step to STANOX, and the schedule feed's TIPLOC reference supplies the station
+description. This is a Network Rail supporting file, not an additional RDM
+Kafka subscription.
+
+The `syncd` container can also consume Darwin Push Port from RDM. Set
+`DARWIN_URL`, `DARWIN_GROUP`, `DARWIN_USER`, and `DARWIN_PASSWORD` in the API
+`.env`; the default topic is
+`prod-1010-Darwin-Train-Information-Push-Port-IIII2_0-JSON`, overridable with
+`DARWIN_TOPIC`. Only the latest arrival, departure, and pass actual/forecast
+timings for ScotRail schedules are retained for each UID, date, and TIPLOC,
+using the existing timetable database to filter the national feed. The route
+`/api/darwin/trainuid/{uid}/route?date=YYYY-MM-DD` returns those normalized
+records for timetable overlays.
 
 The structure is similar to that described [here](https://wiki.openraildata.com/index.php?title=Schedule_Records) with the following differences
 

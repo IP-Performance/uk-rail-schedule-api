@@ -18,6 +18,15 @@ type TDConsumerConfig struct {
 	Password string
 }
 
+// DarwinConsumerConfig contains the RDM Kafka settings for Darwin Push Port.
+type DarwinConsumerConfig struct {
+	Brokers  []string
+	Topic    string
+	GroupID  string
+	Username string
+	Password string
+}
+
 func GetScheduleFeedFilename() string {
 	filename := os.Getenv("SCHEDULE_FEED_FILENAME")
 	if filename == "" {
@@ -97,6 +106,45 @@ func GetTDConsumerConfig() (TDConsumerConfig, bool, error) {
 		Brokers: parsedBrokers, Topic: topic, GroupID: groupID,
 		Username: username, Password: password,
 	}, true, nil
+}
+
+func GetDarwinConsumerConfig() (DarwinConsumerConfig, bool, error) {
+	brokers := strings.TrimSpace(os.Getenv("DARWIN_URL"))
+	groupID := strings.TrimSpace(os.Getenv("DARWIN_GROUP"))
+	username := strings.TrimSpace(os.Getenv("DARWIN_USER"))
+	password := os.Getenv("DARWIN_PASSWORD")
+	topic := strings.TrimSpace(os.Getenv("DARWIN_TOPIC"))
+	if topic == "" {
+		topic = strings.TrimSpace(os.Getenv("DARWIN_FEED_TOPIC"))
+	}
+	if topic == "" {
+		topic = strings.TrimSpace(os.Getenv("DARWIN_TOPIC_NAME"))
+	}
+	if brokers == "" && groupID == "" && username == "" && password == "" && topic == "" {
+		return DarwinConsumerConfig{}, false, nil
+	}
+	if topic == "" {
+		topic = "prod-1010-Darwin-Train-Information-Push-Port-IIII2_0-JSON"
+	}
+	missing := make([]string, 0, 5)
+	for _, item := range []struct{ name, value string }{
+		{"DARWIN_URL", brokers}, {"DARWIN_GROUP", groupID}, {"DARWIN_USER", username},
+		{"DARWIN_PASSWORD", password}, {"DARWIN_TOPIC", topic},
+	} {
+		if strings.TrimSpace(item.value) == "" {
+			missing = append(missing, item.name)
+		}
+	}
+	if len(missing) > 0 {
+		return DarwinConsumerConfig{}, false, errors.New("Darwin Kafka settings are incomplete; missing " + strings.Join(missing, ", "))
+	}
+	parsedBrokers := make([]string, 0, 2)
+	for _, broker := range strings.Split(brokers, ",") {
+		if broker = strings.TrimSpace(broker); broker != "" {
+			parsedBrokers = append(parsedBrokers, broker)
+		}
+	}
+	return DarwinConsumerConfig{Brokers: parsedBrokers, Topic: topic, GroupID: groupID, Username: username, Password: password}, true, nil
 }
 
 func GetHTTPListenAddress() string {
