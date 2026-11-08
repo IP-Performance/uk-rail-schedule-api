@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 	"uk-rail-schedule-api/internal/schedule"
@@ -181,7 +182,7 @@ func RefreshSchedules(filename string, db *gorm.DB, dataDir string, deleteExpire
 		return
 	}
 	for _, f := range files {
-		if !f.IsDir() && path.Ext(f.Name()) == ".json" {
+		if !f.IsDir() && path.Ext(f.Name()) == ".json" && strings.HasPrefix(f.Name(), "vstp-") {
 			fp := path.Join(dataDir, f.Name())
 			if err := insertVSTP(fp, db); err != nil {
 				slog.Error("Failed to insert vstp file during refresh", "error", err, "filename", fp)
