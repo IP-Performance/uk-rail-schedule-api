@@ -127,7 +127,10 @@ func RefreshSchedules(filename string, db *gorm.DB, dataDir string, deleteExpire
 				// did not reliably retain the selected IDs here, so daily full
 				// feeds accumulated duplicate timetable rows.
 				sch.ID = existingSchedule.ID
-				if err := db.Omit("ScheduleLocation").Save(&sch).Error; err != nil {
+				// Keep the database-managed creation timestamp from the existing
+				// row. A zero Go time here is rejected by MySQL strict mode and
+				// would abort the full timetable refresh.
+				if err := db.Omit("ScheduleLocation", "CreatedAt").Save(&sch).Error; err != nil {
 					slog.Error("Failed to update existing schedule", "error", err, "combined_id", sch.CombinedID)
 					return
 				}
