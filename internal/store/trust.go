@@ -13,6 +13,7 @@ import (
 // GetLatestTrustMovement returns the latest ScotRail movement for a schedule
 // UID, or for an unambiguous headcode/service-date combination. When a TIPLOC
 // and event types are supplied, the event must also match that timetable stop.
+// GetLatestTrustMovement retrieves the get latest trust movement behavior.
 func (s *Store) GetLatestTrustMovement(identifierType, identifier, serviceDate, tiplocCode, eventTypes string) (*schedule.TrustMovement, string, error) {
 	if s.DB == nil {
 		return nil, "", errors.New("db is nil")
@@ -79,6 +80,7 @@ func (s *Store) GetLatestTrustMovement(identifierType, identifier, serviceDate, 
 // GetTrustMovementRoute returns the retained movement reports for one train
 // service, ordered by actual time. Headcode and UID lookups are rejected when
 // they map to multiple train activations on the same service date.
+// GetTrustMovementRoute retrieves the get trust movement route behavior.
 func (s *Store) GetTrustMovementRoute(identifierType, identifier, serviceDate string) ([]schedule.TrustMovement, string, error) {
 	if s.DB == nil {
 		return nil, "", errors.New("db is nil")

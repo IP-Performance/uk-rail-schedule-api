@@ -77,6 +77,7 @@ func ListenForDarwin(ctx context.Context, database *gorm.DB, settings config.Dar
 	}
 }
 
+// persistDarwinFrame handles the persist darwin frame behavior.
 func persistDarwinFrame(database *gorm.DB, payload []byte) error {
 	root, err := decodeDarwinJSON(payload)
 	if err != nil {
@@ -134,6 +135,7 @@ func persistDarwinFrame(database *gorm.DB, payload []byte) error {
 	})
 }
 
+// isScotrailSchedule handles the is scotrail schedule behavior.
 func isScotrailSchedule(tx *gorm.DB, trainUID, serviceDate string) (bool, error) {
 	date, err := time.Parse("2006-01-02", serviceDate)
 	if err != nil {
@@ -156,6 +158,7 @@ func isScotrailSchedule(tx *gorm.DB, trainUID, serviceDate string) (bool, error)
 	return count > 0, nil
 }
 
+// decodeDarwinJSON handles the decode darwin json behavior.
 func decodeDarwinJSON(payload []byte) (any, error) {
 	var root any
 	if err := json.Unmarshal(payload, &root); err != nil {
@@ -178,6 +181,7 @@ func decodeDarwinJSON(payload []byte) (any, error) {
 	return root, nil
 }
 
+// collectDarwinTS handles the collect darwin ts behavior.
 func collectDarwinTS(value any, updates *[]schedule.DarwinTiming) {
 	switch node := value.(type) {
 	case map[string]any:
@@ -195,6 +199,7 @@ func collectDarwinTS(value any, updates *[]schedule.DarwinTiming) {
 	}
 }
 
+// collectOneDarwinTS handles the collect one darwin ts behavior.
 func collectOneDarwinTS(value any, updates *[]schedule.DarwinTiming) {
 	root, ok := value.(map[string]any)
 	if !ok {
@@ -209,6 +214,7 @@ func collectOneDarwinTS(value any, updates *[]schedule.DarwinTiming) {
 	walkDarwinLocations(root, base, updates)
 }
 
+// walkDarwinLocations handles the walk darwin locations behavior.
 func walkDarwinLocations(value any, base schedule.DarwinTiming, updates *[]schedule.DarwinTiming) {
 	switch node := value.(type) {
 	case map[string]any:
@@ -252,6 +258,7 @@ func walkDarwinLocations(value any, base schedule.DarwinTiming, updates *[]sched
 	}
 }
 
+// darwinHasKey handles the darwin has key behavior.
 func darwinHasKey(m map[string]any, key string) bool {
 	for candidate := range m {
 		if strings.EqualFold(candidate, key) {
@@ -261,6 +268,7 @@ func darwinHasKey(m map[string]any, key string) bool {
 	return false
 }
 
+// darwinMap handles the darwin map behavior.
 func darwinMap(m map[string]any, key string) (map[string]any, bool) {
 	for candidate, value := range m {
 		if strings.EqualFold(candidate, key) {
@@ -271,6 +279,7 @@ func darwinMap(m map[string]any, key string) (map[string]any, bool) {
 	return nil, false
 }
 
+// darwinString handles the darwin string behavior.
 func darwinString(m map[string]any, key string) string {
 	for candidate, value := range m {
 		if strings.EqualFold(candidate, key) {
@@ -285,6 +294,7 @@ func darwinString(m map[string]any, key string) string {
 	return ""
 }
 
+// firstNonEmptyDarwin handles the first non empty darwin behavior.
 func firstNonEmptyDarwin(values ...string) string {
 	for _, value := range values {
 		if value != "" {
@@ -294,6 +304,7 @@ func firstNonEmptyDarwin(values ...string) string {
 	return ""
 }
 
+// darwinTime handles the darwin time behavior.
 func darwinTime(value, serviceDate string) *time.Time {
 	if value == "" {
 		return nil

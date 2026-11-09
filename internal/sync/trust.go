@@ -129,6 +129,7 @@ func ListenForTrustMovements(database *gorm.DB, stompURL, login, password string
 	}
 }
 
+// persistTrustFrame handles the persist trust frame behavior.
 func persistTrustFrame(database *gorm.DB, payload []byte) error {
 	var messages []trustWireMessage
 	trimmed := strings.TrimSpace(string(payload))
@@ -157,6 +158,7 @@ func persistTrustFrame(database *gorm.DB, payload []byte) error {
 	})
 }
 
+// persistTrustMessage handles the persist trust message behavior.
 func persistTrustMessage(tx *gorm.DB, message trustWireMessage) error {
 	body := message.Body
 	messageType := strings.TrimSpace(message.Header.MessageType)
@@ -244,6 +246,7 @@ func persistTrustMessage(tx *gorm.DB, message trustWireMessage) error {
 	return tx.Where("event_key = ?", row.EventKey).FirstOrCreate(&row).Error
 }
 
+// firstTrustTimestamp handles the first trust timestamp behavior.
 func firstTrustTimestamp(values ...string) *time.Time {
 	for _, value := range values {
 		if timestamp := trustTimestamp(value, true); timestamp != nil {
@@ -253,6 +256,7 @@ func firstTrustTimestamp(values ...string) *time.Time {
 	return nil
 }
 
+// lookupTrustRun handles the lookup trust run behavior.
 func lookupTrustRun(tx *gorm.DB, ids []string) (schedule.TrustRun, error) {
 	var run schedule.TrustRun
 	if len(ids) == 0 {
@@ -262,6 +266,7 @@ func lookupTrustRun(tx *gorm.DB, ids []string) (schedule.TrustRun, error) {
 	return run, err
 }
 
+// trustIDs handles the trust ids behavior.
 func trustIDs(ids ...string) []string {
 	seen := make(map[string]bool)
 	result := make([]string, 0, len(ids))
@@ -274,6 +279,7 @@ func trustIDs(ids ...string) []string {
 	return result
 }
 
+// trustHeadcode handles the trust headcode behavior.
 func trustHeadcode(trainID string) string {
 	if len(trainID) < 6 {
 		return ""
@@ -281,6 +287,7 @@ func trustHeadcode(trainID string) string {
 	return trainID[2:6]
 }
 
+// trustServiceDate handles the trust service date behavior.
 func trustServiceDate(explicit string, run *schedule.TrustRun, timestamp string) string {
 	if len(strings.TrimSpace(explicit)) >= 10 {
 		return strings.TrimSpace(explicit)[:10]
@@ -294,6 +301,7 @@ func trustServiceDate(explicit string, run *schedule.TrustRun, timestamp string)
 	return ""
 }
 
+// trustTimestamp handles the trust timestamp behavior.
 func trustTimestamp(raw string, daylightSavingCorrection bool) *time.Time {
 	value := strings.TrimSpace(raw)
 	if value == "" {

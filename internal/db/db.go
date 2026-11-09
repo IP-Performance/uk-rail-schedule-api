@@ -36,6 +36,7 @@ func OpenConfigured(sqliteFilename, mysqlDSN string) (*gorm.DB, error) {
 	return Open(sqliteFilename)
 }
 
+// open handles the open behavior.
 func open(dialector gorm.Dialector) (*gorm.DB, error) {
 	database, err := gorm.Open(dialector, &gorm.Config{
 		// Schedule and TIPLOC records are reloaded independently from Network

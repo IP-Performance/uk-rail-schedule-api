@@ -157,6 +157,7 @@ var trainCategoryDescriptions = []TrainCategoryDescription{
 	{"H6", "RfD European Channel Tunnel Joint Venture"},
 }
 
+// GetTrainCategoryDescription retrieves the get train category description behavior.
 func GetTrainCategoryDescription(code string) string {
 	for _, cd := range trainCategoryDescriptions {
 		if cd.Code == code {
@@ -186,6 +187,7 @@ var operatingCharacteristicDescriptions = []OperatingCharacteristicDescription{
 	{"Z", "May convey traffic to SB1C gauge. Not to be diverted from booked route without authority."},
 }
 
+// GetOperatingCharacteristicDescription retrieves the get operating characteristic description behavior.
 func GetOperatingCharacteristicDescription(code string) string {
 	var descriptions []string
 	for _, cd := range operatingCharacteristicDescriptions {
@@ -212,6 +214,7 @@ var powerTypeDescriptions = []PowerTypeDescription{
 	{"HST", "High Speed Train"},
 }
 
+// GetPowerTypeDescription retrieves the get power type description behavior.
 func GetPowerTypeDescription(code string) string {
 	for _, pd := range powerTypeDescriptions {
 		if pd.Code == code {
@@ -239,6 +242,7 @@ var trainStatusDescriptions = []TrainStatusDescription{
 	{"5", "STP Bus"},
 }
 
+// GetTrainStatusDescription retrieves the get train status description behavior.
 func GetTrainStatusDescription(code string) string {
 	for _, tsd := range trainStatusDescriptions {
 		if tsd.Code == code {
@@ -273,6 +277,7 @@ var timingLoadDescriptions = []TimingLoadDescription{
 	{[]string{"D", "E", "ED"}, "325 (E)", "Class 325 Electric Parcels Unit"},
 }
 
+// contains handles the contains behavior.
 func contains(s []string, str string) bool {
 	for _, v := range s {
 		if v == str {
@@ -282,6 +287,7 @@ func contains(s []string, str string) bool {
 	return false
 }
 
+// GetTimingLoadDescription retrieves the get timing load description behavior.
 func GetTimingLoadDescription(code string, powerType string) string {
 	if code == "" {
 		return ""
@@ -375,6 +381,7 @@ It checks if the schedule is eligible for overlays (not an STP schedule) and the
 
 If a matching overlay is found, it updates the current schedule's fields with the overlay's values, giving precedence to non-empty fields in the overlay. After applying an overlay, it augments the schedule with human-readable descriptions and computed fields.
 */
+// ApplyOverlays updates the apply overlays behavior.
 func (schedule *Schedule) ApplyOverlays(overlays []Schedule, datetime int64) {
 	slog.Debug("applying overlays", "count", len(overlays), "overlays", overlays)
 

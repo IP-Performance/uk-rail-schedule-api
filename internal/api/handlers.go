@@ -83,6 +83,7 @@ type ErrResponse struct {
 	ErrorText      string `json:"error,omitempty"`
 }
 
+// Render handles the render behavior.
 func (e *ErrResponse) Render(w http.ResponseWriter, r *http.Request) error {
 	render.Status(r, e.HTTPStatusCode)
 	return nil
@@ -98,6 +99,7 @@ type Handler struct {
 	DataDir          string
 }
 
+// SchedulesCtx handles the schedules ctx behavior.
 func (h *Handler) SchedulesCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		headcode := r.URL.Query().Get("headcode")
@@ -140,6 +142,7 @@ func (h *Handler) SchedulesCtx(next http.Handler) http.Handler {
 // resolveIdentifier maps the named identifier query parameters to the internal
 // identifierType/identifier pair used by the store. Precedence: headcode →
 // tiploc → trainuid. Returns ("headcode", "") if none are set.
+// resolveIdentifier handles the resolve identifier behavior.
 func resolveIdentifier(headcode, tiploc, trainuid string) (identifierType, identifier string) {
 	switch {
 	case headcode != "":
@@ -160,6 +163,7 @@ func resolveIdentifier(headcode, tiploc, trainuid string) (identifierType, ident
 //   - "tiploc"   — filters by TIPLOC code (path identifier used as the TIPLOC filter)
 //   - "uid"      — filters by CIF Train UID; optional "location" query param further filters by TIPLOC
 //   - "headcode" — filters by signalling headcode
+// LegacySchedulesCtx handles the legacy schedules ctx behavior.
 func (h *Handler) LegacySchedulesCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		identifierType := chi.URLParam(r, "identifierType")
@@ -215,6 +219,7 @@ func (h *Handler) LegacySchedulesCtx(next http.Handler) http.Handler {
 	})
 }
 
+// StatusCtx handles the status ctx behavior.
 func (h *Handler) StatusCtx(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		status, err := h.Store.GetStatus()
@@ -228,6 +233,7 @@ func (h *Handler) StatusCtx(next http.Handler) http.Handler {
 	})
 }
 
+// GetSchedules retrieves the get schedules behavior.
 func (h *Handler) GetSchedules(w http.ResponseWriter, r *http.Request) {
 	schedules, ok := r.Context().Value("schedules").(ScheduleAPIResponse)
 	if !ok {
@@ -237,6 +243,7 @@ func (h *Handler) GetSchedules(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, schedules)
 }
 
+// GetStatus retrieves the get status behavior.
 func (h *Handler) GetStatus(w http.ResponseWriter, r *http.Request) {
 	status, ok := r.Context().Value("status").(store.APIStatus)
 	if !ok {
@@ -379,6 +386,7 @@ func (h *Handler) GetMovementRoute(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, response)
 }
 
+// darwinRouteMovements handles the darwin route movements behavior.
 func (h *Handler) darwinRouteMovements(trainUID, serviceDate string) ([]TrustMovementAPIResponse, error) {
 	timings, err := h.Store.GetDarwinTimings(trainUID, serviceDate)
 	if err != nil {
@@ -426,6 +434,7 @@ func (h *Handler) darwinRouteMovements(trainUID, serviceDate string) ([]TrustMov
 	return result, nil
 }
 
+// firstScheduleClock handles the first schedule clock behavior.
 func firstScheduleClock(values ...string) string {
 	for _, value := range values {
 		if strings.TrimSpace(value) != "" {
@@ -435,6 +444,7 @@ func firstScheduleClock(values ...string) string {
 	return ""
 }
 
+// scheduleDateTime handles the schedule date time behavior.
 func scheduleDateTime(serviceDate, scheduleClock string) *time.Time {
 	digits := regexp.MustCompile(`[^0-9]`).ReplaceAllString(scheduleClock, "")
 	if len(digits) < 4 {
@@ -460,6 +470,7 @@ func scheduleDateTime(serviceDate, scheduleClock string) *time.Time {
 	return &planned
 }
 
+// apiEventAllowed handles the api event allowed behavior.
 func apiEventAllowed(eventType, requested string) bool {
 	if requested == "" {
 		return true
@@ -472,6 +483,7 @@ func apiEventAllowed(eventType, requested string) bool {
 	return false
 }
 
+// darwinTimingNewer handles the darwin timing newer behavior.
 func darwinTimingNewer(candidate, current TrustMovementAPIResponse) bool {
 	candidateTime := candidate.ActualTime
 	if candidateTime == nil {
@@ -566,6 +578,7 @@ func (h *Handler) GetDarwinRoute(w http.ResponseWriter, r *http.Request) {
 	render.JSON(w, r, map[string]interface{}{"date": date, "train_uid": trainUID, "timings": response})
 }
 
+// RunRefresh runs the run refresh behavior.
 func (h *Handler) RunRefresh(w http.ResponseWriter, r *http.Request) {
 	if internalsync.IsRefreshingDatabase() {
 		w.WriteHeader(409)

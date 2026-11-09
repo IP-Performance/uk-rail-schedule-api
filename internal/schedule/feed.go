@@ -75,18 +75,22 @@ type JSONScheduleV1 struct {
 	TransactionType   string `json:"transaction_type"`
 }
 
+// IsMetadata checks the is metadata behavior.
 func (s *ScheduleFeedRecord) IsMetadata() bool {
 	return s.Timetable.Classification != ""
 }
 
+// IsSchedule checks the is schedule behavior.
 func (s *ScheduleFeedRecord) IsSchedule() bool {
 	return s.JSONScheduleV1.CIFTrainUID != ""
 }
 
+// IsTiploc checks the is tiploc behavior.
 func (s *ScheduleFeedRecord) IsTiploc() bool {
 	return s.Tiploc.TiplocCode != ""
 }
 
+// ToSchedule handles the to schedule behavior.
 func (s *JSONScheduleV1) ToSchedule(publishedAt time.Time) (sch Schedule) {
 	sch.Source = "Feed"
 	sch.PublishedAt = publishedAt

@@ -16,6 +16,7 @@ import (
 // WTT times in the CIF schedule feed are always UK local time (GMT/BST).
 var londonLocation *time.Location
 
+// init handles the init behavior.
 func init() {
 	loc, err := time.LoadLocation("Europe/London")
 	if err != nil {
@@ -43,10 +44,12 @@ type Store struct {
 	Version string
 }
 
+// New initializes the new behavior.
 func New(db *gorm.DB, version string) *Store {
 	return &Store{DB: db, Version: version}
 }
 
+// GetStatus retrieves the get status behavior.
 func (s *Store) GetStatus() (APIStatus, error) {
 	var status APIStatus
 	status.Version = s.Version
@@ -79,6 +82,7 @@ func (s *Store) GetStatus() (APIStatus, error) {
 	return status, nil
 }
 
+// GetSchedules retrieves the get schedules behavior.
 func (s *Store) GetSchedules(headcode, trainUID, date, toc, tiplocId string, hidePassedTrains bool) ([]schedule.Schedule, error) {
 	var schedules []schedule.Schedule
 	var tiploc schedule.Tiploc
@@ -292,6 +296,7 @@ For any date, 'C' or 'O' beats 'P' (lowest alphabetical STP wins). */
 // combineDateAndTime combines a Unix date timestamp with a WTT time string "HHMM" or "HHMMSS".
 // WTT times are always UK local time (GMT/BST), so Europe/London is used when constructing
 // the combined timestamp to correctly account for daylight saving time.
+// combineDateAndTime handles the combine date and time behavior.
 func combineDateAndTime(date int64, wttTime string) (int64, error) {
 	if len(wttTime) < 4 {
 		return 0, fmt.Errorf("wtt time too short: %q", wttTime)

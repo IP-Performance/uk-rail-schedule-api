@@ -25,6 +25,7 @@ var (
 	smOnce sync.Once
 )
 
+// getSyncdMetrics handles the get syncd metrics behavior.
 func getSyncdMetrics() syncdMetrics {
 	smOnce.Do(func() {
 		meter := otel.GetMeterProvider().Meter(meterName)
@@ -89,6 +90,7 @@ func RecordFeedRefreshCompleted(ctx context.Context, scheduleCount, tiplocCount 
 //
 // db is the GORM database handle used for live record counts.
 // dbPath is the filesystem path to the SQLite file when SQLite is in use.
+// RegisterSyncdObservables handles the register syncd observables behavior.
 func RegisterSyncdObservables(db *gorm.DB, dbPath string) {
 	meter := otel.GetMeterProvider().Meter(meterName)
 

@@ -33,6 +33,7 @@ var staticFS embed.FS
 // version is set at build time via -ldflags "-X main.version=<value>".
 var version = "dev"
 
+// main handles the main behavior.
 func main() {
 	_ = godotenv.Load()
 
@@ -124,6 +125,7 @@ func main() {
 	}
 }
 
+// setupLogger handles the setup logger behavior.
 func setupLogger() *slog.Logger {
 	var output *os.File
 	if logFile := os.Getenv("LOG_FILENAME"); logFile != "" {

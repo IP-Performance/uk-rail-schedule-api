@@ -69,6 +69,7 @@ func ListenForVSTP(db *gorm.DB, stompURL, login, password, dataDir string) {
 	}
 }
 
+// processVSTPMessage handles the process vstpmessage behavior.
 func processVSTPMessage(subscription *gostomp.Subscription, db *gorm.DB, dataDir string) error {
 	slog.Debug("Waiting for a message from STOMP subscription")
 	msg := <-subscription.C
@@ -92,7 +93,7 @@ func processVSTPMessage(subscription *gostomp.Subscription, db *gorm.DB, dataDir
 	return nil
 }
 
-// InsertVSTPFromBytes parses a raw VSTP STOMP message body and inserts it into the database.
+// InsertVSTPFromBytes stores the insert vstpfrom bytes behavior.
 func InsertVSTPFromBytes(data []byte, db *gorm.DB) error {
 	var vstpMsg schedule.VSTPStompMsg
 

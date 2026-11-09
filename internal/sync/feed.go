@@ -23,12 +23,14 @@ var (
 	refreshingDatabase bool
 )
 
+// IsRefreshingDatabase checks the is refreshing database behavior.
 func IsRefreshingDatabase() bool {
 	mu.Lock()
 	defer mu.Unlock()
 	return refreshingDatabase
 }
 
+// startRefreshingDatabase handles the start refreshing database behavior.
 func startRefreshingDatabase() {
 	mu.Lock()
 	defer mu.Unlock()
@@ -36,6 +38,7 @@ func startRefreshingDatabase() {
 	refreshingDatabase = true
 }
 
+// endRefreshingDatabase handles the end refreshing database behavior.
 func endRefreshingDatabase(db *gorm.DB, deleteExpired bool) {
 	if db != nil && deleteExpired {
 		slog.Debug("Deleting expired schedules")

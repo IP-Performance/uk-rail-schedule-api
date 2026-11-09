@@ -94,6 +94,7 @@ func ListenForTDPositions(ctx context.Context, database *gorm.DB, settings confi
 	}
 }
 
+// persistTDFrame handles the persist tdframe behavior.
 func persistTDFrame(database *gorm.DB, payload []byte) error {
 	events, err := decodeTDFrame(payload)
 	if err != nil {
@@ -112,6 +113,7 @@ func persistTDFrame(database *gorm.DB, payload []byte) error {
 	})
 }
 
+// decodeTDFrame handles the decode tdframe behavior.
 func decodeTDFrame(payload []byte) ([]tdEvent, error) {
 	trimmed := strings.TrimSpace(string(payload))
 	if trimmed == "" || trimmed == "null" {
@@ -141,6 +143,7 @@ func decodeTDFrame(payload []byte) ([]tdEvent, error) {
 	return events, nil
 }
 
+// applyTDEvent handles the apply tdevent behavior.
 func applyTDEvent(tx *gorm.DB, event tdEvent) error {
 	message := event.Message
 	areaID := strings.ToUpper(strings.TrimSpace(message.AreaID))
@@ -189,6 +192,7 @@ func applyTDEvent(tx *gorm.DB, event tdEvent) error {
 	}
 }
 
+// upsertTDPosition handles the upsert tdposition behavior.
 func upsertTDPosition(tx *gorm.DB, areaID, berth, headcode, stationStanox string, eventAt time.Time) error {
 	if areaID == "" || berth == "" {
 		return nil
@@ -210,6 +214,7 @@ func upsertTDPosition(tx *gorm.DB, areaID, berth, headcode, stationStanox string
 	}).Create(&position).Error
 }
 
+// parseTDTime handles the parse tdtime behavior.
 func parseTDTime(raw json.RawMessage) time.Time {
 	value := strings.TrimSpace(string(raw))
 	value = strings.Trim(value, `"`)
@@ -220,6 +225,7 @@ func parseTDTime(raw json.RawMessage) time.Time {
 	return time.UnixMilli(milliseconds).UTC()
 }
 
+// validTDHeadcode handles the valid tdheadcode behavior.
 func validTDHeadcode(value string) bool {
 	if len(value) != 4 {
 		return false

@@ -18,6 +18,7 @@ const meterName = "uk-rail-schedule-api"
 //
 //   - http_requests_total        (counter)   method, route, status_code
 //   - http_request_duration_seconds (histogram) method, route, status_code
+// Middleware handles the middleware behavior.
 func Middleware() func(http.Handler) http.Handler {
 	meter := otel.GetMeterProvider().Meter(meterName)
 
@@ -66,6 +67,7 @@ type responseWriter struct {
 	statusCode int
 }
 
+// WriteHeader handles the write header behavior.
 func (rw *responseWriter) WriteHeader(code int) {
 	rw.statusCode = code
 	rw.ResponseWriter.WriteHeader(code)

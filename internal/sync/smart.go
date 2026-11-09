@@ -33,6 +33,7 @@ type smartWireSnapshot struct {
 // RefreshSMARTReference downloads Network Rail's small, periodically updated
 // berth-to-STANOX reference snapshot. It uses the existing Network Rail feed
 // credentials and refreshes once per day.
+// RefreshSMARTReference updates the refresh smartreference behavior.
 func RefreshSMARTReference(ctx context.Context, database *gorm.DB, username, password string) {
 	client := &http.Client{Timeout: 2 * time.Minute}
 	for ctx.Err() == nil {
@@ -51,6 +52,7 @@ func RefreshSMARTReference(ctx context.Context, database *gorm.DB, username, pas
 	}
 }
 
+// refreshSMARTOnce handles the refresh smartonce behavior.
 func refreshSMARTOnce(ctx context.Context, client *http.Client, database *gorm.DB, username, password string) error {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, smartFileURL, nil)
 	if err != nil {

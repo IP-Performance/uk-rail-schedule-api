@@ -27,6 +27,7 @@ type DarwinConsumerConfig struct {
 	Password string
 }
 
+// GetScheduleFeedFilename retrieves the get schedule feed filename behavior.
 func GetScheduleFeedFilename() string {
 	filename := os.Getenv("SCHEDULE_FEED_FILENAME")
 	if filename == "" {
@@ -36,6 +37,7 @@ func GetScheduleFeedFilename() string {
 	return filename
 }
 
+// GetDataDir retrieves the get data dir behavior.
 func GetDataDir() string {
 	dir := os.Getenv("DATA_DIR")
 	if dir == "" {
@@ -45,6 +47,7 @@ func GetDataDir() string {
 	return dir
 }
 
+// GetDatabaseFilename retrieves the get database filename behavior.
 func GetDatabaseFilename() string {
 	return path.Join(GetDataDir(), "/ukra.db")
 }
@@ -52,10 +55,12 @@ func GetDatabaseFilename() string {
 // GetDatabaseDSN returns the optional MySQL DSN. An empty value selects the
 // SQLite file returned by GetDatabaseFilename, which remains useful for tests
 // and standalone development.
+// GetDatabaseDSN retrieves the get database dsn behavior.
 func GetDatabaseDSN() string {
 	return os.Getenv("SCHEDULE_DB_DSN")
 }
 
+// GetStompConnectionDetails retrieves the get stomp connection details behavior.
 func GetStompConnectionDetails() (err error, url string, login string, password string) {
 	url = os.Getenv("NR_STOMP_URL")
 	if url == "" {
@@ -72,6 +77,7 @@ func GetStompConnectionDetails() (err error, url string, login string, password 
 	return nil, url, login, password
 }
 
+// GetTDConsumerConfig retrieves the get tdconsumer config behavior.
 func GetTDConsumerConfig() (TDConsumerConfig, bool, error) {
 	brokers := strings.TrimSpace(os.Getenv("TD_URL"))
 	groupID := strings.TrimSpace(os.Getenv("TD_GROUP"))
@@ -108,6 +114,7 @@ func GetTDConsumerConfig() (TDConsumerConfig, bool, error) {
 	}, true, nil
 }
 
+// GetDarwinConsumerConfig retrieves the get darwin consumer config behavior.
 func GetDarwinConsumerConfig() (DarwinConsumerConfig, bool, error) {
 	brokers := strings.TrimSpace(os.Getenv("DARWIN_URL"))
 	groupID := strings.TrimSpace(os.Getenv("DARWIN_GROUP"))
@@ -147,6 +154,7 @@ func GetDarwinConsumerConfig() (DarwinConsumerConfig, bool, error) {
 	return DarwinConsumerConfig{Brokers: parsedBrokers, Topic: topic, GroupID: groupID, Username: username, Password: password}, true, nil
 }
 
+// GetHTTPListenAddress retrieves the get httplisten address behavior.
 func GetHTTPListenAddress() string {
 	addr := os.Getenv("LISTEN_ON")
 	if addr == "" {
@@ -156,6 +164,7 @@ func GetHTTPListenAddress() string {
 	return addr
 }
 
+// ShouldDeleteExpiredSchedulesAfterRefresh checks the should delete expired schedules after refresh behavior.
 func ShouldDeleteExpiredSchedulesAfterRefresh() bool {
 	return os.Getenv("DELETE_EXPIRED_SCHEDULES_ON_REFRESH") == "yes"
 }

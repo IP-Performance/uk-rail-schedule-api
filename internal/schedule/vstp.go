@@ -67,6 +67,7 @@ type VSTPSender struct {
 	SessionID    string `json:"sessionID"`
 }
 
+// ToSchedule handles the to schedule behavior.
 func (s *VSTPSchedule) ToSchedule(publishedAt time.Time) (sch Schedule) {
 	sch.Source = "VSTP"
 	sch.PublishedAt = publishedAt

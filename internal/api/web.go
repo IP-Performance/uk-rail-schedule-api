@@ -31,6 +31,7 @@ type indexData struct {
 	Error     string
 }
 
+// GetIndex retrieves the get index behavior.
 func (h *WebHandler) GetIndex(w http.ResponseWriter, r *http.Request) {
 	status, err := h.Store.GetStatus()
 	if err != nil {
@@ -43,6 +44,7 @@ func (h *WebHandler) GetIndex(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Search handles the search behavior.
 func (h *WebHandler) Search(w http.ResponseWriter, r *http.Request) {
 	headcode := r.FormValue("headcode")
 	tiploc := r.FormValue("tiploc")
@@ -144,6 +146,7 @@ func (h *WebHandler) Search(w http.ResponseWriter, r *http.Request) {
 	renderFullPage(schedules, errMsg)
 }
 
+// GetStatusPartial retrieves the get status partial behavior.
 func (h *WebHandler) GetStatusPartial(w http.ResponseWriter, r *http.Request) {
 	status, err := h.Store.GetStatus()
 	if err != nil {

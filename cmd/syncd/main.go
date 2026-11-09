@@ -19,6 +19,7 @@ import (
 // version is set at build time via -ldflags "-X main.version=<value>".
 var version = "dev"
 
+// main handles the main behavior.
 func main() {
 	_ = godotenv.Load()
 

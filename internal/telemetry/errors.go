@@ -14,6 +14,7 @@ var (
 	errorCounterOnce sync.Once
 )
 
+// getErrorCounter handles the get error counter behavior.
 func getErrorCounter() metric.Int64Counter {
 	errorCounterOnce.Do(func() {
 		meter := otel.GetMeterProvider().Meter(meterName)
@@ -28,6 +29,7 @@ func getErrorCounter() metric.Int64Counter {
 // RecordError increments the application_errors_total counter.
 // errorType should be a short, low-cardinality label such as "db", "handler",
 // "sync", or "parse".
+// RecordError stores the record error behavior.
 func RecordError(ctx context.Context, errorType string) {
 	getErrorCounter().Add(ctx, 1, metric.WithAttributes(
 		attribute.String("error_type", errorType),
