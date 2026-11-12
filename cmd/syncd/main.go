@@ -5,11 +5,14 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 	"uk-rail-schedule-api/internal/config"
 	"uk-rail-schedule-api/internal/db"
+	"uk-rail-schedule-api/internal/health"
 	internalsync "uk-rail-schedule-api/internal/sync"
 	"uk-rail-schedule-api/internal/telemetry"
 
@@ -44,6 +47,17 @@ func main() {
 	telemetry.RegisterSyncdObservables(database, config.GetDatabaseFilename())
 
 	slog.Info("Starting schedule sync daemon", "version", version)
+
+	healthServer := &http.Server{
+		Addr:              "127.0.0.1:3334",
+		Handler:           health.Handler(database),
+		ReadHeaderTimeout: 2 * time.Second,
+	}
+	go func() {
+		if err := healthServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			slog.Error("Sync daemon health server failed", "error", err)
+		}
+	}()
 
 	// Initial load of schedule feed
 	go internalsync.RefreshSchedules(
@@ -83,6 +97,11 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	cancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer shutdownCancel()
+	if err := healthServer.Shutdown(shutdownCtx); err != nil {
+		slog.Warn("Failed to shut down sync daemon health server", "error", err)
+	}
 	slog.Info("Shutting down syncd")
 }
 

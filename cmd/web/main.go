@@ -14,6 +14,7 @@ import (
 	"uk-rail-schedule-api/internal/api"
 	"uk-rail-schedule-api/internal/config"
 	"uk-rail-schedule-api/internal/db"
+	"uk-rail-schedule-api/internal/health"
 	"uk-rail-schedule-api/internal/store"
 	"uk-rail-schedule-api/internal/telemetry"
 
@@ -84,6 +85,7 @@ func main() {
 	r.Use(telemetry.Middleware())
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Timeout(60 * time.Second))
+	r.Get("/healthz", health.Handler(database))
 
 	// Static assets
 	r.Handle("/static/*", http.FileServer(http.FS(staticFS)))

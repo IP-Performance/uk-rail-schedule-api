@@ -16,6 +16,12 @@ services:
       - ../uk-rail-schedule-runtime/data:/app/data
       - /var/run/mysqld:/var/run/mysqld:ro
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:3334/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
 
   web:
     build: .
@@ -31,8 +37,15 @@ services:
       - ../uk-rail-schedule-runtime/data:/app/data
       - /var/run/mysqld:/var/run/mysqld:ro
     depends_on:
-      - syncd
+      syncd:
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:3333/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   update-feed:
     build: .

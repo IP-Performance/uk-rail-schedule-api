@@ -110,6 +110,42 @@ using the existing timetable database to filter the national feed. The route
 `/api/darwin/trainuid/{uid}/route?date=YYYY-MM-DD` returns those normalized
 records for timetable overlays.
 
+### Health checks and recovery
+
+Both `web` and `syncd` expose `/healthz`, which checks that the process can
+reach its configured database. Docker checks these endpoints every 30 seconds
+and marks a container unhealthy after three failed checks. The web container
+waits for `syncd` to become healthy on initial startup. These probes deliberately
+do not test RDM, STOMP, Kafka, or Darwin feed availability: an upstream feed
+interruption must not take the timetable API offline or discard data already in
+the database.
+
+The Darwin consumer reconnects with exponential backoff (up to one minute), so
+the announced 22:00–23:00 maintenance window on Thursday 12 November 2026
+should appear as a temporary Darwin data freshness gap while existing schedule
+and movement data remain available. Check `syncd` logs and the Darwin route data
+freshness after the feed returns; a healthy `/healthz` only confirms API and
+database readiness, not that every upstream feed is current.
+
+An optional host-side recovery timer is provided for installations using this
+repository at `/usr/local/bin/otw/uk-rail-schedule-api`. Install it with:
+
+```sh
+sudo install -m 0644 misc/uk-rail-schedule-api-recovery.service /etc/systemd/system/
+sudo install -m 0644 misc/uk-rail-schedule-api-recovery.timer /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now uk-rail-schedule-api-recovery.timer
+```
+
+It checks every two minutes, restarts only containers Docker has marked
+unhealthy, and enforces a ten-minute recovery cooldown. If the host MySQL socket
+is missing it waits instead of restarting containers. If the socket exists on
+the host but is absent inside a container (for example, after MySQL recreates
+the socket), it recreates `web` and `syncd` to refresh their bind mounts. This
+timer is not enabled automatically by Compose and feed silence alone never
+triggers recovery. Adjust `WorkingDirectory` and `ExecStart` in the unit files
+if the repository is installed elsewhere.
+
 The structure is similar to that described [here](https://wiki.openraildata.com/index.php?title=Schedule_Records) with the following differences
 
 1. the schedule_segment and new_schedule_segments are flattened into the main schedule structure

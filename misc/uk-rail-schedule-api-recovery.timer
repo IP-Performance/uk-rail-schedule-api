@@ -1,0 +1,11 @@
+[Unit]
+Description=Check UK Rail Schedule API container health every two minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=30s
+Unit=uk-rail-schedule-api-recovery.service
+
+[Install]
+WantedBy=timers.target

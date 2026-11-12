@@ -1,0 +1,9 @@
+[Unit]
+Description=Recover unhealthy UK Rail Schedule API containers
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/usr/local/bin/otw/uk-rail-schedule-api
+ExecStart=/usr/local/bin/otw/uk-rail-schedule-api/scripts/recover-unhealthy.sh
