@@ -51,7 +51,12 @@ done
 printf '%s\n' "$now" > "$state_file"
 if [ "$stale_mount" -eq 1 ]; then
     logger -t uk-rail-schedule-api-recovery "Recreating web and syncd after unhealthy status and stale MySQL socket mount"
-    compose up -d --force-recreate web syncd
+    # Remove the containers first. Legacy docker-compose 1.29.2 can fail with
+    # KeyError: ContainerConfig when --force-recreate runs against newer Docker
+    # Engine image metadata; recreating from absent containers works on both
+    # legacy Compose and the current Docker Compose plugin.
+    compose rm -sf web syncd
+    compose up -d web syncd
 else
     # Restart only services which have crossed the configured health threshold.
     # shellcheck disable=SC2086
